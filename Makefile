@@ -4,5 +4,8 @@ lint:
 test:
 	go tool gotestsum
 
-examples:
-	go run . -c -- -- ./example_tests/... -tags examples
+test_race:
+	go tool gotestsum -- -race ./...
+
+test_examples:
+	go run ./cmd/flakeguard/main.go -c -- -- ./example_tests/... -tags examples

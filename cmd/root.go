@@ -29,7 +29,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "flakeguard [flags] [-- gotestsum-flags] [-- go-test-flags]",
 	Short: "Detect and prevent flaky tests from disrupting CI/CD pipelines",
-	Long: `Flakeguard wraps gotestsum to detect and prevent flaky tests.
+	Long: `Flakeguard helps you detect and prevent flaky tests from disrupting CI/CD pipelines.
+It wraps gotestsum, so you can pass through all the flags you're used to using.
 
 Examples:
   flakeguard -c -- --format testname -- ./pkg/...
@@ -81,7 +82,8 @@ func init() {
 
 	rootCmd.PersistentFlags().
 		StringVarP(&testOutputFile, "test-output-file", "t", "test-output.json", "File to store test output")
-	rootCmd.PersistentFlags().IntVarP(&runs, "runs", "r", 5, "Number of times to run the tests")
+	rootCmd.PersistentFlags().
+		IntVarP(&runs, "runs", "r", 5, "Number of times to run each test in detect mode, or the number of times to retry a test in guard mode")
 	rootCmd.PersistentFlags().
 		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-reports", "Directory to store flakeguard reports")
 
@@ -97,7 +99,48 @@ func Execute() {
 }
 
 func runFlakeguard(cmd *cobra.Command, args []string) error {
+	// Parse args to separate gotestsum flags from go test flags
+	var gotestsumFlags []string
+	var goTestFlags []string
+
+	// Find the positions of the double dashes
+	firstDashPos := -1
+	secondDashPos := -1
+
+	for i, arg := range args {
+		if arg == "--" {
+			if firstDashPos == -1 {
+				firstDashPos = i
+			} else if secondDashPos == -1 {
+				secondDashPos = i
+				break
+			}
+		}
+	}
+
+	// Extract flags based on dash positions
+	if firstDashPos != -1 {
+		if secondDashPos != -1 {
+			// Both dashes present: -- <gotestsum flags> -- <go test flags>
+			gotestsumFlags = args[firstDashPos+1 : secondDashPos]
+			goTestFlags = args[secondDashPos+1:]
+		} else {
+			// Only first dash present: -- <gotestsum flags>
+			gotestsumFlags = args[firstDashPos+1:]
+		}
+	}
+
+	// Build the command: go tool gotestsum [gotestsum flags] --jsonfile <file> [-- go test flags]
 	fullArgs := []string{"tool", "gotestsum", "--jsonfile", testOutputFile}
+
+	// Add gotestsum flags first
+	fullArgs = append(fullArgs, gotestsumFlags...)
+
+	// Add go test flags if present
+	if len(goTestFlags) > 0 {
+		fullArgs = append(fullArgs, "--")
+		fullArgs = append(fullArgs, goTestFlags...)
+	}
 
 	command := fmt.Sprintf("go %s", strings.Join(fullArgs, " "))
 	fmt.Println(command)
