@@ -25,7 +25,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.0
-  
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +39,7 @@ jobs:
         run: go mod download
       - name: Run tests
         run: FLAKEGUARD_TEST_LOG_LEVEL=trace go tool gotestsum --junitfile junit.xml -- -coverprofile=cover.out ./...
-  
+
   test-race:
     runs-on: ubuntu-latest
     steps:

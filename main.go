@@ -1,7 +1,9 @@
-package flakeguard
+package main
 
-import "fmt"
+import (
+	"github.com/smartcontractkit/flakeguard/cmd"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	cmd.Execute()
 }
