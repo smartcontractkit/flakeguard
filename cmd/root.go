@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -26,9 +27,14 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flakeguard",
+	Use:   "flakeguard [flags] [-- gotestsum-flags] [-- go-test-flags]",
 	Short: "Detect and prevent flaky tests from disrupting CI/CD pipelines",
-	Long:  ``,
+	Long: `Flakeguard wraps gotestsum to detect and prevent flaky tests.
+
+Examples:
+  flakeguard -c -- --format testname -- ./pkg/...
+  flakeguard --runs 10 -- --format dots -- -v -run TestMyFunction`,
+	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		loggingOpts := []logging.Option{}
 		if !enableConsoleLogs {
@@ -46,6 +52,22 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create logger: %w", err)
 		}
+		logger.Debug().
+			Str("version", version).
+			Str("commit", commit).
+			Str("buildTime", buildTime).
+			Str("builtBy", builtBy).
+			Str("builtWith", builtWith).
+			Str("goVersion", runtime.Version()).
+			Str("os", runtime.GOOS).
+			Str("arch", runtime.GOARCH).
+			Str("logFile", logFile).
+			Str("logLevel", logLevel).
+			Bool("enableConsoleLogs", enableConsoleLogs).
+			Str("testOutputFile", testOutputFile).
+			Int("runs", runs).
+			Str("outputDir", outputDir).
+			Msg("Run info")
 		return nil
 	},
 	RunE: runFlakeguard,
@@ -63,32 +85,27 @@ func init() {
 	rootCmd.PersistentFlags().
 		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-reports", "Directory to store flakeguard reports")
 
-	// Allow unknown flags to be passed through to gotestsum
-	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return nil
-	})
+	// Disable flag parsing after -- to allow passing through to gotestsum
+	rootCmd.Flags().SetInterspersed(false)
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to execute command")
+		logger.Error().Err(err).Msg("Failed to execute command")
+		os.Exit(1)
 	}
 }
 
 func runFlakeguard(cmd *cobra.Command, args []string) error {
-	gotestsumArgs := []string{"tool", "gotestsum", "--jsonfile", testOutputFile}
-	gotestsumArgs = append(gotestsumArgs, args...)
+	fullArgs := []string{"tool", "gotestsum", "--jsonfile", testOutputFile}
 
-	// Print the full command that will be executed
-	logger.Info().Msgf("Running command: go %s", strings.Join(gotestsumArgs, " "))
+	command := fmt.Sprintf("go %s", strings.Join(fullArgs, " "))
+	fmt.Println(command)
+	logger.Info().Msgf("Running command: %s", command)
 
 	//nolint:gosec // G204 we need to call out to gotestsum
-	gotestsumCmd := exec.Command("go", gotestsumArgs...)
+	gotestsumCmd := exec.Command("go", fullArgs...)
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr
-	err := gotestsumCmd.Run()
-	if err != nil {
-		return fmt.Errorf("gotestsum failed: %w", err)
-	}
-	return nil
+	return gotestsumCmd.Run()
 }

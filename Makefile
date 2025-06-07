@@ -3,3 +3,6 @@ lint:
 
 test:
 	go tool gotestsum
+
+examples:
+	go run . -c -- -- ./example_tests/... -tags examples
