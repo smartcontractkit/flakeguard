@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 
@@ -16,27 +15,50 @@ var (
 	logger zerolog.Logger
 
 	// Flag vars
-	outputDir string
+	logFile           string
+	logLevel          string
+	enableConsoleLogs bool
+
+	testOutputFile string
+	runs           int
+	outputDir      string
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "flakeguard",
 	Short: "Detect and prevent flaky tests from disrupting CI/CD pipelines",
 	Long:  ``,
-	RunE:  runFlakeguard,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		loggingOpts := []logging.Option{}
+		if !enableConsoleLogs {
+			loggingOpts = append(loggingOpts, logging.DisableConsoleLog())
+		}
+		if logLevel != "" {
+			loggingOpts = append(loggingOpts, logging.WithLevel(logLevel))
+		}
+		if logFile != "" {
+			loggingOpts = append(loggingOpts, logging.WithFileName(logFile))
+		}
+
+		var err error
+		logger, err = logging.New(loggingOpts...)
+		if err != nil {
+			return fmt.Errorf("failed to create logger: %w", err)
+		}
+		return nil
+	},
+	RunE: runFlakeguard,
 }
 
 func init() {
-	var err error
-	logger, err = logging.New(
-		logging.WithLevel("info"),
-		logging.WithFileName("flakeguard.log"),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
+	rootCmd.PersistentFlags().StringVarP(&logFile, "log-file", "l", "flakeguard.log", "File to store flakeguard logs")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "L", "info", "Log level to use")
+	rootCmd.PersistentFlags().
+		BoolVarP(&enableConsoleLogs, "enable-console-logs", "c", false, "Enable console logs for flakeguard")
 
-	// Add flags
+	rootCmd.PersistentFlags().
+		StringVarP(&testOutputFile, "test-output-file", "t", "test-output.json", "File to store test output")
+	rootCmd.PersistentFlags().IntVarP(&runs, "runs", "r", 5, "Number of times to run the tests")
 	rootCmd.PersistentFlags().
 		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-reports", "Directory to store flakeguard reports")
 
@@ -53,9 +75,13 @@ func Execute() {
 }
 
 func runFlakeguard(cmd *cobra.Command, args []string) error {
-	logger.Info().Msg("Running flakeguard")
+	// Build gotestsum command with arguments
+	// gotestsum --jsonfile flakeguard.json <go test args>
+	gotestsumArgs := []string{"tool", "gotestsum", "--jsonfile", testOutputFile}
+	gotestsumArgs = append(gotestsumArgs, args...)
 
-	gotestsumCmd := exec.Command("gotestsum", args...)
+	//nolint:gosec // G204 we need to call out to gotestsum
+	gotestsumCmd := exec.Command("go", gotestsumArgs...)
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr
 	err := gotestsumCmd.Run()
