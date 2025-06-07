@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -75,10 +76,11 @@ func Execute() {
 }
 
 func runFlakeguard(cmd *cobra.Command, args []string) error {
-	// Build gotestsum command with arguments
-	// gotestsum --jsonfile flakeguard.json <go test args>
 	gotestsumArgs := []string{"tool", "gotestsum", "--jsonfile", testOutputFile}
 	gotestsumArgs = append(gotestsumArgs, args...)
+
+	// Print the full command that will be executed
+	logger.Info().Msgf("Running command: go %s", strings.Join(gotestsumArgs, " "))
 
 	//nolint:gosec // G204 we need to call out to gotestsum
 	gotestsumCmd := exec.Command("go", gotestsumArgs...)
