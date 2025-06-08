@@ -46,7 +46,7 @@ func defaultOptions() *options {
 	return &options{
 		disableConsoleLog: false,
 		logLevelInput:     "info",
-		logFileName:       "octometrics.log.json",
+		logFileName:       "flakeguard.log.json",
 	}
 }
 

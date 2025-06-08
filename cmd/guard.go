@@ -30,10 +30,11 @@ func guardTests(_ *cobra.Command, args []string) error {
 		"gotestsum",
 		"--jsonfile",
 		fmt.Sprintf("%s/guard.json", outputDir),
-		"--rerun-fails",
-		"5",
+		fmt.Sprintf("--rerun-fails=%d", runs),
+		"--packages=./...",
 	}
 
+	fmt.Println("DEBUG: args", args)
 	gotestsumFlags, goTestFlags := parseArgs(args)
 
 	// Add gotestsum flags first

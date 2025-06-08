@@ -3,9 +3,8 @@
 .idea/
 
 flakeguard.log
-test-output.json
 flakeguard
-flakeguard-reports/
+flakeguard-output/
 
 # Common debug file
 x.json

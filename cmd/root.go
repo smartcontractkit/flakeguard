@@ -71,15 +71,15 @@ Examples:
 			loggingOpts = append(loggingOpts, logging.WithLevel(logLevel))
 		}
 		if logFile != "" {
-			loggingOpts = append(loggingOpts, logging.WithFileName(logFile))
+			loggingOpts = append(loggingOpts, logging.WithFileName(fmt.Sprintf("%s/%s", outputDir, logFile)))
 		}
 
 		var err error
-		logger, err = logging.New(loggingOpts...)
-		if err != nil {
+		if err = os.MkdirAll(outputDir, 0750); err != nil {
 			return NewExitError(ExitCodeFlakeguardError, err)
 		}
-		if err := os.MkdirAll(outputDir, 0750); err != nil {
+		logger, err = logging.New(loggingOpts...)
+		if err != nil {
 			return NewExitError(ExitCodeFlakeguardError, err)
 		}
 		logger.Debug().
@@ -102,7 +102,8 @@ Examples:
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&logFile, "log-file", "l", "flakeguard.log", "File to store flakeguard logs")
+	rootCmd.PersistentFlags().
+		StringVarP(&logFile, "log-file", "l", "flakeguard.log.json", "File to store flakeguard logs")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "L", "info", "Log level to use")
 	rootCmd.PersistentFlags().
 		BoolVarP(&enableConsoleLogs, "enable-console-logs", "c", false, "Enable console logs for flakeguard")
@@ -110,7 +111,7 @@ func init() {
 	rootCmd.PersistentFlags().
 		IntVarP(&runs, "runs", "r", 5, "Number of times to run each test in detect mode, or the number of times to retry a test in guard mode")
 	rootCmd.PersistentFlags().
-		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-reports", "Directory to store flakeguard reports")
+		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-output", "Directory to store flakeguard outputs")
 
 	// Disable flag parsing after -- to allow passing through to gotestsum
 	rootCmd.Flags().SetInterspersed(false)
@@ -136,31 +137,20 @@ func getExitCode(err error) int {
 // parseArgs parses command line arguments to separate gotestsum flags from go test flags.
 // flakeguard [flakeguard flags] -- [gotestsum flags] -- [go test flags]
 func parseArgs(args []string) (gotestsumFlags []string, goTestFlags []string) {
-	// Find the positions of the double dashes
-	firstDashPos := -1
-	secondDashPos := -1
-
+	// Find the position of the first --
+	dashPos := -1
 	for i, arg := range args {
 		if arg == "--" {
-			if firstDashPos == -1 {
-				firstDashPos = i
-			} else if secondDashPos == -1 {
-				secondDashPos = i
-				break
-			}
+			dashPos = i
+			break
 		}
 	}
+	gotestsumFlags = args[:dashPos]
+	goTestFlags = args[dashPos+1:]
 
-	if firstDashPos != -1 {
-		if secondDashPos != -1 {
-			// Both dashes present: -- <gotestsum flags> -- <go test flags>
-			gotestsumFlags = args[firstDashPos+1 : secondDashPos]
-			goTestFlags = args[secondDashPos+1:]
-		} else {
-			// Only first dash present: -- <gotestsum flags>
-			gotestsumFlags = args[firstDashPos+1:]
-		}
-	}
-
+	logger.Debug().
+		Strs("gotestsum_flags", gotestsumFlags).
+		Strs("go_test_flags", goTestFlags).
+		Msg("Parsed Flags")
 	return gotestsumFlags, goTestFlags
 }
