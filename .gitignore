@@ -4,3 +4,8 @@
 
 flakeguard.log
 test-output.json
+flakeguard
+flakeguard-reports/
+
+# Common debug file
+x.json

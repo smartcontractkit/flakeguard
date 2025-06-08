@@ -1,3 +1,6 @@
+build:
+	go build -o flakeguard ./cmd/flakeguard/main.go
+
 lint:
 	golangci-lint run --fix
 
