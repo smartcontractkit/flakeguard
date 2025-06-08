@@ -82,6 +82,7 @@ Examples:
 		if err != nil {
 			return NewExitError(ExitCodeFlakeguardError, err)
 		}
+		logger = logger.With().Str("component", "flakeguard").Logger()
 		logger.Debug().
 			Str("version", version).
 			Str("commit", commit).
