@@ -1,6 +1,6 @@
 //go:build examples
 
-package somepanic
+package panic
 
 import (
 	"fmt"

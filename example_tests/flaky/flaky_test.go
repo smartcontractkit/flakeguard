@@ -1,6 +1,6 @@
 //go:build examples
 
-package someflaky
+package flaky
 
 import (
 	"math/rand"
@@ -37,4 +37,11 @@ func TestFlakeFiftyPercent(t *testing.T) {
 		t.Log("I flake 50% of the time")
 		t.FailNow()
 	}
+}
+
+func TestFlakeHundredPercent(t *testing.T) {
+	t.Parallel()
+
+	t.Log("I flake 100% of the time")
+	t.FailNow()
 }

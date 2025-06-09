@@ -8,37 +8,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/flakeguard/exit"
 	"github.com/smartcontractkit/flakeguard/logging"
 )
-
-const (
-	ExitCodeSuccess         = 0
-	ExitCodeGoFailingTest   = 1
-	ExitCodeGoBuildError    = 2
-	ExitCodeFlakeguardError = 3
-)
-
-// ExitError represents an error with a specific exit code
-type ExitError struct {
-	Code int
-	Err  error
-}
-
-func (e *ExitError) Error() string {
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return fmt.Sprintf("exit code %d", e.Code)
-}
-
-func (e *ExitError) Unwrap() error {
-	return e.Err
-}
-
-// NewExitError creates a new ExitError with the given code and error
-func NewExitError(code int, err error) *ExitError {
-	return &ExitError{Code: code, Err: err}
-}
 
 var (
 	logger zerolog.Logger
@@ -76,11 +48,11 @@ Examples:
 
 		var err error
 		if err = os.MkdirAll(outputDir, 0750); err != nil {
-			return NewExitError(ExitCodeFlakeguardError, err)
+			return exit.New(exit.CodeFlakeguardError, err)
 		}
 		logger, err = logging.New(loggingOpts...)
 		if err != nil {
-			return NewExitError(ExitCodeFlakeguardError, err)
+			return exit.New(exit.CodeFlakeguardError, err)
 		}
 		logger = logger.With().Str("component", "flakeguard").Logger()
 		logger.Debug().
@@ -121,18 +93,8 @@ func init() {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		logger.Error().Err(err).Msg("Failed to execute command")
-		os.Exit(getExitCode(err))
+		os.Exit(exit.GetCode(err))
 	}
-}
-
-func getExitCode(err error) int {
-	// Check if it's a custom error with exit code
-	if exitErr, ok := err.(*ExitError); ok {
-		return exitErr.Code
-	}
-
-	// Default to flakeguard error for unknown errors
-	return ExitCodeFlakeguardError
 }
 
 // parseArgs parses command line arguments to separate gotestsum flags from go test flags.
