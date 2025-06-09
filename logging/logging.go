@@ -71,13 +71,12 @@ func New(options ...Option) (zerolog.Logger, error) {
 		disableFileLogging = opts.disableFileLogging
 	)
 
-	err := os.WriteFile(logFileName, []byte{}, 0600)
-	if err != nil {
-		return zerolog.Logger{}, err
-	}
-
 	writers := []io.Writer{}
 	if !disableFileLogging {
+		err := os.WriteFile(logFileName, []byte{}, 0600)
+		if err != nil {
+			return zerolog.Logger{}, err
+		}
 		lumberLogger := &lumberjack.Logger{
 			Filename:   logFileName,
 			MaxSize:    100, // megabytes

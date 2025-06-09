@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"time"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -26,32 +26,34 @@ type TestResult struct {
 	CodeOwners  []string `json:"code_owners,omitempty"`
 
 	// Details of the code when the test was executed by flakeguard
-	RepoURL    string `json:"repo_url,omitempty"`
-	RepoOwner  string `json:"repo_owner,omitempty"`
-	RepoName   string `json:"repo_name,omitempty"`
+	RepoURL   string `json:"repo_url,omitempty"`
+	RepoOwner string `json:"repo_owner,omitempty"`
+	RepoName  string `json:"repo_name,omitempty"`
+	// Head branch and commit are the branch and commit that the tests were run on.
+	HeadBranch string `json:"head_branch,omitempty"`
+	HeadCommit string `json:"head_commit,omitempty"`
+	// Base branch is the branch that you want to merge code into, if the run was on a PR
 	BaseBranch string `json:"base_branch,omitempty"`
 	BaseCommit string `json:"base_commit,omitempty"`
-	// Target
-	TargetBranch string `json:"target_branch,omitempty"`
-	TargetCommit string `json:"target_commit,omitempty"`
 
 	// Details of the test execution
 
 	// If any test in the same package panics, this is true.
 	// Same package panics can destroy the results of all other tests that were also running.
-	PackagePanic bool            `json:"package_panic"`
-	Panic        bool            `json:"panic"`
-	Timeout      bool            `json:"timeout"`
-	Race         bool            `json:"race"`
-	Skipped      bool            `json:"skipped"`
-	PassRatio    float64         `json:"pass_ratio"`
-	Runs         int             `json:"runs"`
-	Failures     int             `json:"failures"`
-	Successes    int             `json:"successes"`
-	Skips        int             `json:"skips"`
-	Durations    []time.Duration `json:"durations"`
+	PackagePanic      bool            `json:"package_panic"`
+	Panic             bool            `json:"panic"`
+	Timeout           bool            `json:"timeout"`
+	Race              bool            `json:"race"`
+	Skipped           bool            `json:"skipped"`
+	PassRatio         float64         `json:"pass_ratio"`
+	Runs              int             `json:"runs"`
+	Failures          int             `json:"failures"`
+	Successes         int             `json:"successes"`
+	Skips             int             `json:"skips"`
+	FailingRunNumbers []int           `json:"failing_runs,omitempty"`
+	Durations         []time.Duration `json:"durations,omitempty"`
 	// Run number -> outputs
-	Outputs map[int][]string `json:"outputs"`
+	Outputs map[int][]string `json:"outputs,omitempty"`
 }
 
 // testOutputLine is a single line of test output from the go test -json
@@ -65,6 +67,8 @@ type testOutputLine struct {
 
 type reportOptions struct {
 	toConsole bool
+
+	reportFile string
 
 	splunkURL            string
 	splunkToken          string
@@ -85,6 +89,12 @@ type Option func(*reportOptions)
 func ToConsole() Option {
 	return func(o *reportOptions) {
 		o.toConsole = true
+	}
+}
+
+func ToFile(path string) Option {
+	return func(o *reportOptions) {
+		o.reportFile = path
 	}
 }
 
@@ -123,11 +133,33 @@ func New(l zerolog.Logger, files []string, options ...Option) error {
 		option(&opts)
 	}
 
-	// TODO: analyze the test output and create a report
-	_, err := readTestOutput(l, files...)
+	lines, err := readTestOutput(l, files...)
 	if err != nil {
 		return fmt.Errorf("failed to read test output: %w", err)
 	}
+
+	results, err := analyzeTestOutput(l, lines)
+	if err != nil {
+		return fmt.Errorf("failed to analyze test output: %w", err)
+	}
+
+	eg := errgroup.Group{}
+	if opts.toConsole {
+		eg.Go(func() error {
+			return writeToConsole(l, results)
+		})
+	}
+
+	if opts.reportFile != "" {
+		eg.Go(func() error {
+			return writeToFile(l, results, opts.reportFile)
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("failed to write report: %w", err)
+	}
+
 	return nil
 }
 
@@ -168,40 +200,78 @@ func readTestOutput(l zerolog.Logger, files ...string) ([]*testOutputLine, error
 }
 
 func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) ([]*TestResult, error) {
-	l.Debug().Msg("Analyzing test output")
+	l.Debug().Int("lines", len(lines)).Msg("Analyzing test output")
 	start := time.Now()
 
-	// package/test_name -> TestResult
-	results := map[string]*TestResult{}
+	// package -> test_name -> TestResult
+	results := map[string]map[string]*TestResult{}
+	// package -> test_name -> current_run_number
+	testRunNumber := map[string]map[string]int{}
+	panickedPackages := []string{}
 
 	for _, line := range lines {
-		testKey := filepath.Join(line.Package, line.Test)
-		result, ok := results[testKey]
+		if _, ok := results[line.Package]; !ok {
+			results[line.Package] = make(map[string]*TestResult)
+		}
+		if _, ok := testRunNumber[line.Package]; !ok {
+			testRunNumber[line.Package] = make(map[string]int)
+		}
+
+		result, ok := results[line.Package][line.Test]
 		if !ok {
+			testRunNumber[line.Package][line.Test] = 1
 			result = &TestResult{
 				TestName:    line.Test,
 				TestPackage: line.Package,
+				Outputs:     make(map[int][]string),
+				Durations:   []time.Duration{},
 			}
-			results[testKey] = result
+			results[line.Package][line.Test] = result
 		}
 
+		result.Outputs[testRunNumber[line.Package][line.Test]] = append(
+			result.Outputs[testRunNumber[line.Package][line.Test]],
+			line.Output,
+		)
+		if line.Elapsed > 0 {
+			result.Durations = append(result.Durations, time.Duration(line.Elapsed*1000000000))
+		}
 		switch line.Action {
 		case "pass":
 			result.Successes++
+
+			testRunNumber[line.Package][line.Test]++
 		case "fail":
 			result.Failures++
+			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
+
+			testRunNumber[line.Package][line.Test]++
 		case "skip":
 			result.Skips++
+
+			testRunNumber[line.Package][line.Test]++
 		case "panic":
 			result.Panic = true
+			result.PackagePanic = true
+			panickedPackages = append(panickedPackages, line.Package)
+			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
 
+			testRunNumber[line.Package][line.Test]++
 		}
 	}
 
-	// Convert map to slice
+	// Mark all test results in panicked packages as panicked
+	for _, packageName := range panickedPackages {
+		for _, result := range results[packageName] {
+			result.PackagePanic = true
+		}
+	}
+
 	resultSlice := make([]*TestResult, 0, len(results))
-	for _, result := range results {
-		resultSlice = append(resultSlice, result)
+	for _, packageResults := range results {
+		for _, result := range packageResults {
+			resultSlice = append(resultSlice, result)
+		}
 	}
 
 	l.Debug().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")

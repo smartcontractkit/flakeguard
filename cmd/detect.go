@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/flakeguard/exit"
+	"github.com/smartcontractkit/flakeguard/report"
 )
+
+const detectFileOutput = "%s/detect-%d.json"
 
 var detectCmd = &cobra.Command{
 	Use:   "detect",
@@ -29,17 +33,32 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 	// We only use -count=1 to disable test caching.
 	gotestsumFlags, goTestFlags := parseArgs(args)
 	goTestFlags = append(goTestFlags, "-count=1")
+	detectFiles := make([]string, 0, runs)
 	for run := range runs {
-		logger.Info().Msgf("Running flake detection %d of %d", run+1, runs)
-		if err := runDetect(run, gotestsumFlags, goTestFlags); err != nil {
-			return fmt.Errorf("failed to run test %d of %d: %w", run+1, runs, err)
+		run := run + 1
+		logger.Info().Msgf("Running flake detection %d of %d", run, runs)
+		detectFile, err := runDetect(run, gotestsumFlags, goTestFlags)
+		if err != nil {
+			return fmt.Errorf("failed to run test %d of %d: %w", run, runs, err)
 		}
+		detectFiles = append(detectFiles, detectFile)
 	}
+
+	err := report.New(
+		logger,
+		detectFiles,
+		report.ToConsole(),
+		report.ToFile(filepath.Join(outputDir, "flakeguard-report.json")),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create report: %w", err)
+	}
+
 	return nil
 }
 
-func runDetect(run int, gotestsumFlags []string, goTestFlags []string) error {
-	fullArgs := []string{"tool", "gotestsum", "--jsonfile", fmt.Sprintf("%s/detect-%d.json", outputDir, run)}
+func runDetect(run int, gotestsumFlags []string, goTestFlags []string) (string, error) {
+	fullArgs := []string{"tool", "gotestsum", "--jsonfile", fmt.Sprintf(detectFileOutput, outputDir, run)}
 
 	// Add gotestsum flags first
 	fullArgs = append(fullArgs, gotestsumFlags...)
@@ -60,7 +79,7 @@ func runDetect(run int, gotestsumFlags []string, goTestFlags []string) error {
 	gotestsumCmd.Stderr = os.Stderr
 
 	err := gotestsumCmd.Run()
-	return handleTestRunError(run, err)
+	return fmt.Sprintf(detectFileOutput, outputDir, run), handleTestRunError(run, err)
 }
 
 func handleTestRunError(run int, err error) error {
@@ -83,23 +102,25 @@ func handleTestRunError(run int, err error) error {
 				logger.Info().
 					Int("run", run+1).
 					Int("exit_code", exitCode).
-					Msg("Some tests failed - continuing detection")
+					Msg("Found flaky tests")
 				// Test failures are expected in flaky test detection, so we continue
 				return nil
 
 			case exit.CodeGoBuildError:
 				logger.Error().
+					Err(err).
 					Int("run", run+1).
 					Int("exit_code", exitCode).
-					Msg("Build/compilation error - stopping detection")
+					Msg("Build/compilation error")
 				// Build errors are serious and should stop the detection process
 				return exit.New(exit.CodeGoBuildError, fmt.Errorf("build error on run %d: %w", run+1, err))
 
 			default:
 				logger.Warn().
+					Err(err).
 					Int("run", run+1).
 					Int("exit_code", exitCode).
-					Msg("Unexpected exit code - continuing detection")
+					Msg("Unexpected exit code")
 				// For other exit codes, log but continue
 				return nil
 			}
@@ -107,6 +128,6 @@ func handleTestRunError(run int, err error) error {
 	}
 
 	// For other types of errors (like command not found), return the error
-	logger.Error().Int("run", run+1).Err(err).Msg("Command execution error")
-	return exit.New(exit.CodeFlakeguardError, fmt.Errorf("command execution failed on run %d: %w", run+1, err))
+	logger.Error().Int("run", run+1).Err(err).Msg("Flakeguard encountered an error")
+	return exit.New(exit.CodeFlakeguardError, fmt.Errorf("flakeguard encountered an error on run %d: %w", run+1, err))
 }
