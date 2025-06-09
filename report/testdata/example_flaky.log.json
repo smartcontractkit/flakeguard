@@ -1,0 +1,87 @@
+{"Time":"2025-06-09T16:47:10.467397-04:00","Action":"start","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky"}
+{"Time":"2025-06-09T16:47:10.644818-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent"}
+{"Time":"2025-06-09T16:47:10.644984-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Output":"=== RUN   TestFlakeTenPercent\n"}
+{"Time":"2025-06-09T16:47:10.645001-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Output":"=== PAUSE TestFlakeTenPercent\n"}
+{"Time":"2025-06-09T16:47:10.645004-04:00","Action":"pause","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent"}
+{"Time":"2025-06-09T16:47:10.645025-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent"}
+{"Time":"2025-06-09T16:47:10.645031-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent","Output":"=== RUN   TestFlakeTwentyFivePercent\n"}
+{"Time":"2025-06-09T16:47:10.645037-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent","Output":"=== PAUSE TestFlakeTwentyFivePercent\n"}
+{"Time":"2025-06-09T16:47:10.645039-04:00","Action":"pause","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent"}
+{"Time":"2025-06-09T16:47:10.645042-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent"}
+{"Time":"2025-06-09T16:47:10.645045-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent","Output":"=== RUN   TestFlakeFiftyPercent\n"}
+{"Time":"2025-06-09T16:47:10.645054-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent","Output":"=== PAUSE TestFlakeFiftyPercent\n"}
+{"Time":"2025-06-09T16:47:10.645057-04:00","Action":"pause","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent"}
+{"Time":"2025-06-09T16:47:10.645059-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:10.645061-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass","Output":"=== RUN   TestPass\n"}
+{"Time":"2025-06-09T16:47:10.645071-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass","Output":"=== PAUSE TestPass\n"}
+{"Time":"2025-06-09T16:47:10.645073-04:00","Action":"pause","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:10.645076-04:00","Action":"cont","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent"}
+{"Time":"2025-06-09T16:47:10.645078-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Output":"=== CONT  TestFlakeTenPercent\n"}
+{"Time":"2025-06-09T16:47:10.64508-04:00","Action":"cont","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent"}
+{"Time":"2025-06-09T16:47:10.645082-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent","Output":"=== CONT  TestFlakeFiftyPercent\n"}
+{"Time":"2025-06-09T16:47:10.645087-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent","Output":"--- PASS: TestFlakeFiftyPercent (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.64509-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeFiftyPercent","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645093-04:00","Action":"cont","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent"}
+{"Time":"2025-06-09T16:47:10.645096-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent","Output":"=== CONT  TestFlakeTwentyFivePercent\n"}
+{"Time":"2025-06-09T16:47:10.645099-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent","Output":"--- PASS: TestFlakeTwentyFivePercent (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645108-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTwentyFivePercent","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.64511-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Output":"    flaky_test.go:15: I flake 10% of the time\n"}
+{"Time":"2025-06-09T16:47:10.645113-04:00","Action":"cont","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:10.645115-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass","Output":"=== CONT  TestPass\n"}
+{"Time":"2025-06-09T16:47:10.645118-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-0"}
+{"Time":"2025-06-09T16:47:10.64512-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-0","Output":"=== RUN   TestPass/pass-0\n"}
+{"Time":"2025-06-09T16:47:10.645123-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Output":"--- FAIL: TestFlakeTenPercent (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.64513-04:00","Action":"fail","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestFlakeTenPercent","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645133-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-0","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645135-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-0","Output":"--- PASS: TestPass/pass-0 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645138-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-0","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.64514-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-1"}
+{"Time":"2025-06-09T16:47:10.645142-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-1","Output":"=== RUN   TestPass/pass-1\n"}
+{"Time":"2025-06-09T16:47:10.645144-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-1","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645147-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-1","Output":"--- PASS: TestPass/pass-1 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645149-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-1","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645151-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-2"}
+{"Time":"2025-06-09T16:47:10.645153-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-2","Output":"=== RUN   TestPass/pass-2\n"}
+{"Time":"2025-06-09T16:47:10.645155-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-2","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645158-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-2","Output":"--- PASS: TestPass/pass-2 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.64516-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-2","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645162-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-3"}
+{"Time":"2025-06-09T16:47:10.645164-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-3","Output":"=== RUN   TestPass/pass-3\n"}
+{"Time":"2025-06-09T16:47:10.645166-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-3","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645169-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-3","Output":"--- PASS: TestPass/pass-3 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645171-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-3","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645173-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-4"}
+{"Time":"2025-06-09T16:47:10.645175-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-4","Output":"=== RUN   TestPass/pass-4\n"}
+{"Time":"2025-06-09T16:47:10.645177-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-4","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.64518-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-4","Output":"--- PASS: TestPass/pass-4 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645182-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-4","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645184-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-5"}
+{"Time":"2025-06-09T16:47:10.645186-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-5","Output":"=== RUN   TestPass/pass-5\n"}
+{"Time":"2025-06-09T16:47:10.645188-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-5","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.64519-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-5","Output":"--- PASS: TestPass/pass-5 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645199-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-5","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645201-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-6"}
+{"Time":"2025-06-09T16:47:10.645203-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-6","Output":"=== RUN   TestPass/pass-6\n"}
+{"Time":"2025-06-09T16:47:10.645205-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-6","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.64522-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-6","Output":"--- PASS: TestPass/pass-6 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645222-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-6","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645227-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-7"}
+{"Time":"2025-06-09T16:47:10.645229-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-7","Output":"=== RUN   TestPass/pass-7\n"}
+{"Time":"2025-06-09T16:47:10.645232-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-7","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645234-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-7","Output":"--- PASS: TestPass/pass-7 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645236-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-7","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645238-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-8"}
+{"Time":"2025-06-09T16:47:10.64524-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-8","Output":"=== RUN   TestPass/pass-8\n"}
+{"Time":"2025-06-09T16:47:10.645242-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-8","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645245-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-8","Output":"--- PASS: TestPass/pass-8 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645247-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-8","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645249-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-9"}
+{"Time":"2025-06-09T16:47:10.645251-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-9","Output":"=== RUN   TestPass/pass-9\n"}
+{"Time":"2025-06-09T16:47:10.645253-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-9","Output":"    flaky_test.go:43: I pass\n"}
+{"Time":"2025-06-09T16:47:10.645266-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-9","Output":"--- PASS: TestPass/pass-9 (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645268-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass/pass-9","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645271-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass","Output":"--- PASS: TestPass (0.00s)\n"}
+{"Time":"2025-06-09T16:47:10.645273-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Test":"TestPass","Elapsed":0}
+{"Time":"2025-06-09T16:47:10.645275-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Output":"FAIL\n"}
+{"Time":"2025-06-09T16:47:10.645617-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Output":"FAIL\tgithub.com/smartcontractkit/flakeguard/example_tests/flaky\t0.178s\n"}
+{"Time":"2025-06-09T16:47:10.64563-04:00","Action":"fail","Package":"github.com/smartcontractkit/flakeguard/example_tests/flaky","Elapsed":0.178}

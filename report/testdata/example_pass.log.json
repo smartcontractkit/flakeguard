@@ -1,0 +1,12 @@
+{"Time":"2025-06-09T16:47:55.936667-04:00","Action":"start","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass"}
+{"Time":"2025-06-09T16:47:56.101398-04:00","Action":"run","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:56.101429-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass","Output":"=== RUN   TestPass\n"}
+{"Time":"2025-06-09T16:47:56.101463-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass","Output":"=== PAUSE TestPass\n"}
+{"Time":"2025-06-09T16:47:56.101464-04:00","Action":"pause","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:56.101467-04:00","Action":"cont","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass"}
+{"Time":"2025-06-09T16:47:56.101468-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass","Output":"=== CONT  TestPass\n"}
+{"Time":"2025-06-09T16:47:56.101475-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass","Output":"--- PASS: TestPass (0.00s)\n"}
+{"Time":"2025-06-09T16:47:56.101477-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Test":"TestPass","Elapsed":0}
+{"Time":"2025-06-09T16:47:56.10148-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Output":"PASS\n"}
+{"Time":"2025-06-09T16:47:56.101624-04:00","Action":"output","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Output":"ok  \tgithub.com/smartcontractkit/flakeguard/example_tests/pass\t0.165s\n"}
+{"Time":"2025-06-09T16:47:56.101634-04:00","Action":"pass","Package":"github.com/smartcontractkit/flakeguard/example_tests/pass","Elapsed":0.165}

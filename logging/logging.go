@@ -14,9 +14,10 @@ const TimeLayout = "2006-01-02T15:04:05.000"
 var once sync.Once
 
 type options struct {
-	disableConsoleLog bool
-	logLevelInput     string
-	logFileName       string
+	disableConsoleLog  bool
+	logLevelInput      string
+	logFileName        string
+	disableFileLogging bool
 }
 
 type Option func(*options)
@@ -42,6 +43,12 @@ func DisableConsoleLog() Option {
 	}
 }
 
+func DisableFileLogging() Option {
+	return func(o *options) {
+		o.disableFileLogging = true
+	}
+}
+
 func defaultOptions() *options {
 	return &options{
 		disableConsoleLog: false,
@@ -58,9 +65,10 @@ func New(options ...Option) (zerolog.Logger, error) {
 	}
 
 	var (
-		logFileName       = opts.logFileName
-		logLevelInput     = opts.logLevelInput
-		disableConsoleLog = opts.disableConsoleLog
+		logFileName        = opts.logFileName
+		logLevelInput      = opts.logLevelInput
+		disableConsoleLog  = opts.disableConsoleLog
+		disableFileLogging = opts.disableFileLogging
 	)
 
 	err := os.WriteFile(logFileName, []byte{}, 0600)
@@ -68,14 +76,16 @@ func New(options ...Option) (zerolog.Logger, error) {
 		return zerolog.Logger{}, err
 	}
 
-	lumberLogger := &lumberjack.Logger{
-		Filename:   logFileName,
-		MaxSize:    100, // megabytes
-		MaxBackups: 10,
-		MaxAge:     30,
+	writers := []io.Writer{}
+	if !disableFileLogging {
+		lumberLogger := &lumberjack.Logger{
+			Filename:   logFileName,
+			MaxSize:    100, // megabytes
+			MaxBackups: 10,
+			MaxAge:     30,
+		}
+		writers = append(writers, lumberLogger)
 	}
-
-	writers := []io.Writer{lumberLogger}
 	if !disableConsoleLog {
 		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: TimeLayout})
 	}
@@ -89,5 +99,9 @@ func New(options ...Option) (zerolog.Logger, error) {
 		zerolog.TimeFieldFormat = TimeLayout
 	})
 	multiWriter := zerolog.MultiLevelWriter(writers...)
-	return zerolog.New(multiWriter).Level(logLevel).With().Timestamp().Logger(), nil
+	logger := zerolog.New(multiWriter).Level(logLevel).With().Timestamp().Logger()
+	if !disableConsoleLog {
+		logger = logger.With().Str("component", "flakeguard").Logger()
+	}
+	return logger, nil
 }

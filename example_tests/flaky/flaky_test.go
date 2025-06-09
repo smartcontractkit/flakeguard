@@ -3,14 +3,10 @@
 package flaky
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 )
-
-func TestNoFlake(t *testing.T) {
-	t.Parallel()
-	t.Log("I don't flake")
-}
 
 func TestFlakeTenPercent(t *testing.T) {
 	t.Parallel()
@@ -39,9 +35,12 @@ func TestFlakeFiftyPercent(t *testing.T) {
 	}
 }
 
-func TestFlakeHundredPercent(t *testing.T) {
+func TestPass(t *testing.T) {
 	t.Parallel()
 
-	t.Log("I flake 100% of the time")
-	t.FailNow()
+	for i := range 10 {
+		t.Run(fmt.Sprintf("pass-%d", i), func(t *testing.T) {
+			t.Log("I pass")
+		})
+	}
 }

@@ -3,6 +3,7 @@
 .idea/
 
 flakeguard.log
+flakeguard.log.*
 flakeguard
 flakeguard-output/
 

@@ -54,7 +54,6 @@ Examples:
 		if err != nil {
 			return exit.New(exit.CodeFlakeguardError, err)
 		}
-		logger = logger.With().Str("component", "flakeguard").Logger()
 		logger.Debug().
 			Str("version", version).
 			Str("commit", commit).
