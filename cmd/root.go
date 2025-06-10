@@ -107,8 +107,13 @@ func parseArgs(args []string) (gotestsumFlags []string, goTestFlags []string) {
 			break
 		}
 	}
-	gotestsumFlags = args[:dashPos]
-	goTestFlags = args[dashPos+1:]
+	if dashPos != -1 {
+		gotestsumFlags = args[:dashPos]
+		goTestFlags = args[dashPos+1:]
+	} else {
+		gotestsumFlags = args
+		goTestFlags = []string{}
+	}
 
 	logger.Debug().
 		Strs("gotestsum_flags", gotestsumFlags).

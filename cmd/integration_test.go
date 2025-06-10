@@ -95,7 +95,8 @@ func TestIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests - short mode")
 	}
-	// TODO: Implement further, this is currently unfinished.
+	// TODO: Implement further, this is currently unfinished and a template for later work.
+	// Worth looking into using testscript: https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript
 	t.Skip("Skipping integration tests - not implemented")
 
 	binaryPath := buildFlakeguard(t)
