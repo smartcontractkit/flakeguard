@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/flakeguard/exit"
 	"github.com/smartcontractkit/flakeguard/git"
 	"github.com/smartcontractkit/flakeguard/github"
 )
@@ -320,9 +321,38 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 			result.Durations = append(result.Durations, time.Duration(line.Elapsed*1000000000))
 		}
 
-		// TODO: Add support for panic, race, timeout, etc.
+		// Panics will often lie in JSON output, so that the attached line.Test isn't the actual test that panicked.
+		// This is a limitation of how go test output works. There are some tricks where you can better attribute the panic to the correct test,
+		// but they're full of their own edge cases and limitations.
+		// We'll just use the line.Test as a best guess.
+		if startPanicRe.MatchString(line.Output) {
+			result.Panic = true
+			result.PackagePanic = true
+			summary.Panics++
+			result.Runs++
+			summary.TotalTestRuns++
+			panickedPackages = append(panickedPackages, line.Package)
+			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
+
+			testRunNumber[line.Package][line.Test]++
+			continue
+		}
+		// Same for races, although it's less common.
+		// TODO: Add support for race, timeout, etc.
+		if startRaceRe.MatchString(line.Output) {
+			result.Race = true
+			summary.Races++
+			result.Runs++
+			summary.TotalTestRuns++
+			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
+
+			testRunNumber[line.Package][line.Test]++
+			continue
+		}
 
 		switch line.Action {
+		case "build-fail":
+			return nil, nil, exit.New(exit.CodeGoBuildError, fmt.Errorf("build failed for package %s", line.Package))
 		case "pass":
 			result.Successes++
 			summary.Successes++

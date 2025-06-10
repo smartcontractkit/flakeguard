@@ -8,7 +8,7 @@ import (
 )
 
 func writeToConsole(l zerolog.Logger, summary *reportSummary, results []*TestResult) error {
-	l.Debug().Msg("Writing report to console")
+	l.Trace().Msg("Writing report to console")
 	start := time.Now()
 
 	fmt.Println("Flakeguard report")
@@ -22,6 +22,6 @@ func writeToConsole(l zerolog.Logger, summary *reportSummary, results []*TestRes
 		}
 	}
 
-	l.Debug().Dur("duration", time.Since(start)).Msg("Report written to console")
+	l.Trace().Dur("duration", time.Since(start)).Msg("Report written to console")
 	return nil
 }

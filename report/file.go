@@ -12,7 +12,7 @@ import (
 
 // writeToTextFile writes a flakeguard report to a human-readable text file
 func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
-	l.Debug().Str("file", file).Msg("Writing report to file")
+	l.Trace().Str("file", file).Msg("Writing report to file")
 	start := time.Now()
 
 	//nolint:gosec // G304 we're not writing to a file that we don't control
@@ -67,13 +67,13 @@ func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 		}
 	}
 
-	l.Debug().Dur("duration", time.Since(start)).Msg("Report written to file")
+	l.Trace().Dur("duration", time.Since(start)).Msg("Report written to file")
 	return nil
 }
 
 // writeToJSONFile writes a flakeguard report to a JSON file
 func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
-	l.Debug().Str("file", file).Msg("Writing report to JSON file")
+	l.Trace().Str("file", file).Msg("Writing report to JSON file")
 	start := time.Now()
 
 	type jsonReport struct {
@@ -106,6 +106,6 @@ func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 		return fmt.Errorf("failed to write to report file: %w", err)
 	}
 
-	l.Debug().Dur("duration", time.Since(start)).Msg("Report written to JSON file")
+	l.Trace().Dur("duration", time.Since(start)).Msg("Report written to JSON file")
 	return nil
 }
