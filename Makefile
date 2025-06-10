@@ -7,11 +7,14 @@ lint:
 test:
 	go tool gotestsum -- -cover ./...
 
+test_verbose:
+	FLAKEGUARD_TEST_LOG_LEVEL=debug go tool gotestsum -- -cover -v ./...
+
 test_unit:
 	go tool gotestsum -- -cover ./... -short
 
+test_unit_verbose:
+	FLAKEGUARD_TEST_LOG_LEVEL=debug go tool gotestsum -- -cover -v -short ./...
+
 test_race:
 	go tool gotestsum -- -cover -race ./...
-
-test_examples:
-	go tool gotestsum -- -cover TestExample

@@ -63,6 +63,6 @@ func Logger(tb testing.TB, options ...Option) zerolog.Logger {
 	}
 	log, err := logging.New(loggingOpts...)
 	require.NoError(tb, err, "error setting up logging")
-	log = log.With().Str("test_name", tb.Name()).Logger()
+	log = log.With().Str("running_test", tb.Name()).Logger()
 	return log
 }

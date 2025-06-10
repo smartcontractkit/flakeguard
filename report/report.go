@@ -5,21 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
-	"sort"
 	"time"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/flakeguard/exit"
 	"github.com/smartcontractkit/flakeguard/git"
 	"github.com/smartcontractkit/flakeguard/github"
-)
-
-var (
-	startPanicRe = regexp.MustCompile(`^panic:`)
-	startRaceRe  = regexp.MustCompile(`^WARNING: DATA RACE`)
 )
 
 // TestResult contains the results and outputs of a single test
@@ -268,142 +260,8 @@ func readTestOutput(l zerolog.Logger, files ...string) ([]*testOutputLine, error
 	return lines, nil
 }
 
-func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummary, []*TestResult, error) {
-	l.Debug().Int("lines", len(lines)).Msg("Analyzing test output")
-	start := time.Now()
-
-	summary := &reportSummary{
-		UniqueTestsRun: 0,
-		TotalTestRuns:  0,
-		Successes:      0,
-		Failures:       0,
-		Panics:         0,
-		Races:          0,
-		Timeouts:       0,
-		Skips:          0,
-	}
-
-	// package -> test_name -> TestResult
-	results := map[string]map[string]*TestResult{}
-	// package -> test_name -> current_run_number
-	testRunNumber := map[string]map[string]int{}
-	panickedPackages := []string{}
-
-	for _, line := range lines {
-		if _, ok := results[line.Package]; !ok {
-			results[line.Package] = make(map[string]*TestResult)
-		}
-		if _, ok := testRunNumber[line.Package]; !ok {
-			testRunNumber[line.Package] = make(map[string]int)
-		}
-		if line.Test == "" { // This is a package summary line, not a test result
-			continue
-		}
-
-		result, ok := results[line.Package][line.Test]
-		if !ok {
-			summary.UniqueTestsRun++
-			testRunNumber[line.Package][line.Test] = 1
-			result = &TestResult{
-				TestName:    line.Test,
-				TestPackage: line.Package,
-				Outputs:     make(map[int][]string),
-				Durations:   []time.Duration{},
-			}
-			results[line.Package][line.Test] = result
-		}
-
-		result.Outputs[testRunNumber[line.Package][line.Test]] = append(
-			result.Outputs[testRunNumber[line.Package][line.Test]],
-			line.Output,
-		)
-		if line.Elapsed > 0 {
-			result.Durations = append(result.Durations, time.Duration(line.Elapsed*1000000000))
-		}
-
-		// Panics will often lie in JSON output, so that the attached line.Test isn't the actual test that panicked.
-		// This is a limitation of how go test output works. There are some tricks where you can better attribute the panic to the correct test,
-		// but they're full of their own edge cases and limitations.
-		// We'll just use the line.Test as a best guess.
-		if startPanicRe.MatchString(line.Output) {
-			result.Panic = true
-			result.PackagePanic = true
-			summary.Panics++
-			result.Runs++
-			summary.TotalTestRuns++
-			panickedPackages = append(panickedPackages, line.Package)
-			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
-
-			testRunNumber[line.Package][line.Test]++
-			continue
-		}
-		// Same for races, although it's less common.
-		// TODO: Add support for race, timeout, etc.
-		if startRaceRe.MatchString(line.Output) {
-			result.Race = true
-			summary.Races++
-			result.Runs++
-			summary.TotalTestRuns++
-			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
-
-			testRunNumber[line.Package][line.Test]++
-			continue
-		}
-
-		switch line.Action {
-		case "build-fail":
-			return nil, nil, exit.New(exit.CodeGoBuildError, fmt.Errorf("build failed for package %s", line.Package))
-		case "pass":
-			result.Successes++
-			summary.Successes++
-			result.Runs++
-			summary.TotalTestRuns++
-
-			testRunNumber[line.Package][line.Test]++
-		case "fail":
-			result.Failures++
-			summary.Failures++
-			result.Runs++
-			summary.TotalTestRuns++
-			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
-
-			testRunNumber[line.Package][line.Test]++
-		case "skip":
-			result.Skips++
-			summary.Skips++
-
-			testRunNumber[line.Package][line.Test]++
-		}
-	}
-
-	// Mark all test results in panicked packages as panicked
-	for _, packageName := range panickedPackages {
-		for _, result := range results[packageName] {
-			result.PackagePanic = true
-		}
-	}
-
-	resultSlice := make([]*TestResult, 0, len(results))
-	for _, packageResults := range results {
-		for _, result := range packageResults {
-			resultSlice = append(resultSlice, result)
-		}
-	}
-
-	// Sort by package and name for easier reading
-	sort.Slice(resultSlice, func(i, j int) bool {
-		if resultSlice[i].TestPackage == resultSlice[j].TestPackage {
-			return resultSlice[i].TestName < resultSlice[j].TestName
-		}
-		return resultSlice[i].TestPackage < resultSlice[j].TestPackage
-	})
-
-	l.Debug().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")
-	return summary, resultSlice, nil
-}
-
-func testRunInfo(l zerolog.Logger, testName string) (*TestRunInfo, error) {
-	repoInfo, err := git.GetRepoInfo(l, testName)
+func testRunInfo(l zerolog.Logger, repoPath string) (*TestRunInfo, error) {
+	repoInfo, err := git.GetRepoInfo(l, repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo info: %w", err)
 	}
