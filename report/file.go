@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -9,8 +10,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// writeToFile writes a flakeguard report to a file
-func writeToFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
+// writeToTextFile writes a flakeguard report to a human-readable text file
+func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
 	l.Debug().Str("file", file).Msg("Writing report to file")
 	start := time.Now()
 
@@ -67,5 +68,44 @@ func writeToFile(l zerolog.Logger, summary *reportSummary, results []*TestResult
 	}
 
 	l.Debug().Dur("duration", time.Since(start)).Msg("Report written to file")
+	return nil
+}
+
+// writeToJSONFile writes a flakeguard report to a JSON file
+func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
+	l.Debug().Str("file", file).Msg("Writing report to JSON file")
+	start := time.Now()
+
+	type jsonReport struct {
+		Summary *reportSummary `json:"summary"`
+		Results []*TestResult  `json:"results"`
+	}
+
+	json, err := json.Marshal(jsonReport{
+		Summary: summary,
+		Results: results,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal report to JSON: %w", err)
+	}
+
+	//nolint:gosec // G304 we're not writing to a file that we don't control
+	jsonFile, err := os.Create(file)
+	if err != nil {
+		return fmt.Errorf("failed to create report file: %w", err)
+	}
+	defer func() {
+		err := jsonFile.Close()
+		if err != nil {
+			l.Error().Str("file", file).Err(err).Msg("Failed to close report file")
+		}
+	}()
+
+	_, err = jsonFile.Write(json)
+	if err != nil {
+		return fmt.Errorf("failed to write to report file: %w", err)
+	}
+
+	l.Debug().Dur("duration", time.Since(start)).Msg("Report written to JSON file")
 	return nil
 }

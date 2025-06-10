@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/flakeguard/git"
 	"github.com/smartcontractkit/flakeguard/github"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -64,7 +65,21 @@ type TestRunInfo struct {
 }
 
 func (t *TestResult) String() string {
-	return fmt.Sprintf("TestPackage: %s, TestName: %s, TestPath: %s, PackagePanic: %t, Panic: %t, Timeout: %t, Race: %t, PassPercentage: %.2f, Runs: %d, Failures: %d, Successes: %d, Skips: %d", t.TestPackage, t.TestName, t.TestPath, t.PackagePanic, t.Panic, t.Timeout, t.Race, t.PassRatio*100, t.Runs, t.Failures, t.Successes, t.Skips)
+	return fmt.Sprintf(
+		"TestPackage: %s, TestName: %s, TestPath: %s, PackagePanic: %t, Panic: %t, Timeout: %t, Race: %t, PassPercentage: %.2f, Runs: %d, Failures: %d, Successes: %d, Skips: %d",
+		t.TestPackage,
+		t.TestName,
+		t.TestPath,
+		t.PackagePanic,
+		t.Panic,
+		t.Timeout,
+		t.Race,
+		t.PassRatio*100,
+		t.Runs,
+		t.Failures,
+		t.Successes,
+		t.Skips,
+	)
 }
 
 // testOutputLine is a single line of test output from the go test -json
@@ -88,13 +103,25 @@ type reportSummary struct {
 }
 
 func (s *reportSummary) String() string {
-	return fmt.Sprintf("UniqueTestsRun: %d, TotalTestRuns: %d, Successes: %d, Failures: %d, Panics: %d, Races: %d, Timeouts: %d, Skips: %d", s.UniqueTestsRun, s.TotalTestRuns, s.Successes, s.Failures, s.Panics, s.Races, s.Timeouts, s.Skips)
+	return fmt.Sprintf(
+		"UniqueTestsRun: %d, TotalTestRuns: %d, Successes: %d, Failures: %d, Panics: %d, Races: %d, Timeouts: %d, Skips: %d",
+		s.UniqueTestsRun,
+		s.TotalTestRuns,
+		s.Successes,
+		s.Failures,
+		s.Panics,
+		s.Races,
+		s.Timeouts,
+		s.Skips,
+	)
 }
 
 type reportOptions struct {
 	toConsole bool
 
 	reportFile string
+
+	jsonFile string
 
 	splunkURL            string
 	splunkToken          string
@@ -112,15 +139,24 @@ type reportOptions struct {
 
 type Option func(*reportOptions)
 
+// ToConsole writes a concise report to the console
 func ToConsole() Option {
 	return func(o *reportOptions) {
 		o.toConsole = true
 	}
 }
 
+// ToFile writes the report to a human-readable text file, good for debugging
 func ToFile(path string) Option {
 	return func(o *reportOptions) {
 		o.reportFile = path
+	}
+}
+
+// ToJSON writes the report to a JSON file, good for ingesting into other programs
+func ToJSON(path string) Option {
+	return func(o *reportOptions) {
+		o.jsonFile = path
 	}
 }
 
@@ -178,7 +214,13 @@ func New(l zerolog.Logger, files []string, options ...Option) error {
 
 	if opts.reportFile != "" {
 		eg.Go(func() error {
-			return writeToFile(l, summary, results, opts.reportFile)
+			return writeToTextFile(l, summary, results, opts.reportFile)
+		})
+	}
+
+	if opts.jsonFile != "" {
+		eg.Go(func() error {
+			return writeToJSONFile(l, summary, results, opts.jsonFile)
 		})
 	}
 
