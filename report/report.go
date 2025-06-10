@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/flakeguard/git"
+	"github.com/smartcontractkit/flakeguard/github"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,21 +25,10 @@ type TestResult struct {
 	// Identifying info on the test
 	TestName    string   `json:"test_name"`
 	TestPackage string   `json:"test_package"`
-	TestPath    string   `json:"test_path,omitempty"`
-	CodeOwners  []string `json:"code_owners,omitempty"`
+	TestPath    string   `json:"test_path,omitempty"`   // TODO: Get this
+	CodeOwners  []string `json:"code_owners,omitempty"` // TODO: Get this
 
-	// Details of the code when the test was executed by flakeguard
-	RepoURL   string `json:"repo_url,omitempty"`
-	RepoOwner string `json:"repo_owner,omitempty"`
-	RepoName  string `json:"repo_name,omitempty"`
-	// Head branch and commit are the branch and commit that the tests were run on.
-	HeadBranch string `json:"head_branch,omitempty"`
-	HeadCommit string `json:"head_commit,omitempty"`
-	// Base branch is the branch that you want to merge code into, if the run was on a PR
-	BaseBranch string `json:"base_branch,omitempty"`
-	BaseCommit string `json:"base_commit,omitempty"`
-
-	// Details of the test execution
+	TestRunInfo *TestRunInfo `json:"test_run_info,omitempty"`
 
 	// If any test in the same package panics, this is true.
 	// Same package panics can destroy the results of all other tests that were also running.
@@ -56,6 +48,25 @@ type TestResult struct {
 	Outputs map[int][]string `json:"outputs,omitempty"`
 }
 
+// TestRunInfo details meta information about the code when the test was run
+type TestRunInfo struct {
+	RepoURL   string `json:"repo_url"`
+	RepoOwner string `json:"repo_owner"`
+	RepoName  string `json:"repo_name"`
+	// The current branch and commit that the tests were run on
+	HeadBranch string `json:"head_branch"`
+	HeadCommit string `json:"head_commit"`
+	// The base branch and commit that the tests were run on (only applicable for PRs or merge groups)
+	BaseBranch string `json:"base_branch,omitempty"`
+	BaseCommit string `json:"base_commit,omitempty"`
+	// If the test was run in a GitHub Actions environment, this is the event that triggered the run
+	GitHubEvent string `json:"github_event,omitempty"`
+}
+
+func (t *TestResult) String() string {
+	return fmt.Sprintf("TestPackage: %s, TestName: %s, TestPath: %s, PackagePanic: %t, Panic: %t, Timeout: %t, Race: %t, PassPercentage: %.2f, Runs: %d, Failures: %d, Successes: %d, Skips: %d", t.TestPackage, t.TestName, t.TestPath, t.PackagePanic, t.Panic, t.Timeout, t.Race, t.PassRatio*100, t.Runs, t.Failures, t.Successes, t.Skips)
+}
+
 // testOutputLine is a single line of test output from the go test -json
 type testOutputLine struct {
 	Action  string  `json:"Action,omitempty"`
@@ -63,6 +74,21 @@ type testOutputLine struct {
 	Package string  `json:"Package,omitempty"`
 	Output  string  `json:"Output,omitempty"`
 	Elapsed float64 `json:"Elapsed,omitempty"` // Decimal value in seconds
+}
+
+type reportSummary struct {
+	UniqueTestsRun int
+	TotalTestRuns  int
+	Successes      int
+	Failures       int
+	Panics         int
+	Races          int
+	Timeouts       int
+	Skips          int
+}
+
+func (s *reportSummary) String() string {
+	return fmt.Sprintf("UniqueTestsRun: %d, TotalTestRuns: %d, Successes: %d, Failures: %d, Panics: %d, Races: %d, Timeouts: %d, Skips: %d", s.UniqueTestsRun, s.TotalTestRuns, s.Successes, s.Failures, s.Panics, s.Races, s.Timeouts, s.Skips)
 }
 
 type reportOptions struct {
@@ -138,7 +164,7 @@ func New(l zerolog.Logger, files []string, options ...Option) error {
 		return fmt.Errorf("failed to read test output: %w", err)
 	}
 
-	results, err := analyzeTestOutput(l, lines)
+	summary, results, err := analyzeTestOutput(l, lines)
 	if err != nil {
 		return fmt.Errorf("failed to analyze test output: %w", err)
 	}
@@ -146,13 +172,13 @@ func New(l zerolog.Logger, files []string, options ...Option) error {
 	eg := errgroup.Group{}
 	if opts.toConsole {
 		eg.Go(func() error {
-			return writeToConsole(l, results)
+			return writeToConsole(l, summary, results)
 		})
 	}
 
 	if opts.reportFile != "" {
 		eg.Go(func() error {
-			return writeToFile(l, results, opts.reportFile)
+			return writeToFile(l, summary, results, opts.reportFile)
 		})
 	}
 
@@ -199,9 +225,20 @@ func readTestOutput(l zerolog.Logger, files ...string) ([]*testOutputLine, error
 	return lines, nil
 }
 
-func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) ([]*TestResult, error) {
+func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummary, []*TestResult, error) {
 	l.Debug().Int("lines", len(lines)).Msg("Analyzing test output")
 	start := time.Now()
+
+	summary := &reportSummary{
+		UniqueTestsRun: 0,
+		TotalTestRuns:  0,
+		Successes:      0,
+		Failures:       0,
+		Panics:         0,
+		Races:          0,
+		Timeouts:       0,
+		Skips:          0,
+	}
 
 	// package -> test_name -> TestResult
 	results := map[string]map[string]*TestResult{}
@@ -216,9 +253,13 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) ([]*TestResult
 		if _, ok := testRunNumber[line.Package]; !ok {
 			testRunNumber[line.Package] = make(map[string]int)
 		}
+		if line.Test == "" { // This is a package summary line, not a test result
+			continue
+		}
 
 		result, ok := results[line.Package][line.Test]
 		if !ok {
+			summary.UniqueTestsRun++
 			testRunNumber[line.Package][line.Test] = 1
 			result = &TestResult{
 				TestName:    line.Test,
@@ -236,25 +277,28 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) ([]*TestResult
 		if line.Elapsed > 0 {
 			result.Durations = append(result.Durations, time.Duration(line.Elapsed*1000000000))
 		}
+
+		// TODO: Add support for panic, race, timeout, etc.
+
 		switch line.Action {
 		case "pass":
 			result.Successes++
+			summary.Successes++
+			result.Runs++
+			summary.TotalTestRuns++
 
 			testRunNumber[line.Package][line.Test]++
 		case "fail":
 			result.Failures++
+			summary.Failures++
+			result.Runs++
+			summary.TotalTestRuns++
 			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
 
 			testRunNumber[line.Package][line.Test]++
 		case "skip":
 			result.Skips++
-
-			testRunNumber[line.Package][line.Test]++
-		case "panic":
-			result.Panic = true
-			result.PackagePanic = true
-			panickedPackages = append(panickedPackages, line.Package)
-			result.FailingRunNumbers = append(result.FailingRunNumbers, testRunNumber[line.Package][line.Test])
+			summary.Skips++
 
 			testRunNumber[line.Package][line.Test]++
 		}
@@ -274,6 +318,36 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) ([]*TestResult
 		}
 	}
 
+	// Sort by package and name for easier reading
+	sort.Slice(resultSlice, func(i, j int) bool {
+		if resultSlice[i].TestPackage == resultSlice[j].TestPackage {
+			return resultSlice[i].TestName < resultSlice[j].TestName
+		}
+		return resultSlice[i].TestPackage < resultSlice[j].TestPackage
+	})
+
 	l.Debug().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")
-	return resultSlice, nil
+	return summary, resultSlice, nil
+}
+
+func testRunInfo(l zerolog.Logger, testName string) (*TestRunInfo, error) {
+	repoInfo, err := git.GetRepoInfo(l, testName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo info: %w", err)
+	}
+
+	t := &TestRunInfo{
+		RepoURL:    repoInfo.URL,
+		RepoOwner:  repoInfo.Owner,
+		RepoName:   repoInfo.Name,
+		HeadBranch: repoInfo.Branch,
+		HeadCommit: repoInfo.Commit,
+	}
+
+	if github.IsActions() {
+		t.GitHubEvent = github.Event()
+		t.BaseBranch, t.BaseCommit = github.Branches()
+	}
+
+	return t, nil
 }

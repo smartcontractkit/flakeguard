@@ -48,7 +48,7 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 		logger,
 		detectFiles,
 		report.ToConsole(),
-		report.ToFile(filepath.Join(outputDir, "flakeguard-report.json")),
+		report.ToFile(filepath.Join(outputDir, "flakeguard-report.txt")),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create report: %w", err)

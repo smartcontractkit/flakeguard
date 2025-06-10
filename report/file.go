@@ -10,7 +10,7 @@ import (
 )
 
 // writeToFile writes a flakeguard report to a file
-func writeToFile(l zerolog.Logger, results []*TestResult, file string) error {
+func writeToFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
 	l.Debug().Str("file", file).Msg("Writing report to file")
 	start := time.Now()
 
@@ -26,20 +26,22 @@ func writeToFile(l zerolog.Logger, results []*TestResult, file string) error {
 		}
 	}()
 
+	_, err = fmt.Fprintf(reportFile, "%s\n", summary.String())
+	if err != nil {
+		return fmt.Errorf("failed to write to report file: %w", err)
+	}
+	_, err = fmt.Fprintf(reportFile, "====================\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to report file: %w", err)
+	}
+
 	for _, result := range results {
 		if result.Failures > 0 || result.Panic {
 			_, err := reportFile.WriteString("--------------------------------\n")
 			if err != nil {
 				return fmt.Errorf("failed to write to report file: %w", err)
 			}
-			_, err = fmt.Fprintf(
-				reportFile,
-				"%s %s ran %d times, failed %d times\n",
-				result.TestPackage,
-				result.TestName,
-				len(result.Outputs),
-				result.Failures,
-			)
+			_, err = fmt.Fprintf(reportFile, "%s\n", result.String())
 			if err != nil {
 				return fmt.Errorf("failed to write to report file: %w", err)
 			}
@@ -48,11 +50,15 @@ func writeToFile(l zerolog.Logger, results []*TestResult, file string) error {
 				return fmt.Errorf("failed to write to report file: %w", err)
 			}
 			for _, failingRunNum := range result.FailingRunNumbers {
-				_, err := fmt.Fprintf(reportFile, "Failing run %d:\n", failingRunNum)
+				_, err := fmt.Fprintf(reportFile, "\nFailing run %d\n", failingRunNum)
 				if err != nil {
 					return fmt.Errorf("failed to write to report file: %w", err)
 				}
-				_, err = reportFile.WriteString(strings.Join(result.Outputs[failingRunNum], "\n"))
+				_, err = reportFile.WriteString("--------------------------------\n")
+				if err != nil {
+					return fmt.Errorf("failed to write to report file: %w", err)
+				}
+				_, err = reportFile.WriteString(strings.Join(result.Outputs[failingRunNum], ""))
 				if err != nil {
 					return fmt.Errorf("failed to write to report file: %w", err)
 				}
