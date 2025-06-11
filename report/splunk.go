@@ -34,8 +34,10 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 		splunkSourceType = reportOptions.splunkSourceType
 	)
 
-	if splunkURL == "" || splunkToken == "" || splunkIndex == "" {
-		return fmt.Errorf("splunkURL, splunkToken, and splunkIndex must be set to use Splunk reporting")
+	if splunkURL == "" || splunkToken == "" || splunkIndex == "" || splunkSourceType == "" {
+		return fmt.Errorf(
+			"splunkURL, splunkToken, splunkIndex, and splunkSourceType must be set to use Splunk reporting",
+		)
 	}
 
 	const (
