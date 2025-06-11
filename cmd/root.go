@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -9,19 +10,35 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/flakeguard/exit"
+	"github.com/smartcontractkit/flakeguard/git"
+	"github.com/smartcontractkit/flakeguard/github"
 	"github.com/smartcontractkit/flakeguard/logging"
+	"github.com/smartcontractkit/flakeguard/report"
 )
 
 var (
 	logger zerolog.Logger
 
 	// Flag vars
+	// Logging
 	logFile           string
 	logLevel          string
 	enableConsoleLogs bool
 
+	// Run behavior
 	runs      int
 	outputDir string
+	dryRun    bool
+
+	// Reporting
+	splunkURL        string
+	splunkToken      string
+	splunkIndex      string
+	splunkSourceType string
+
+	dxWebhookURL string
+
+	slackWebhookURL string
 )
 
 var rootCmd = &cobra.Command{
@@ -74,16 +91,39 @@ Examples:
 }
 
 func init() {
+	// Logging
 	rootCmd.PersistentFlags().
 		StringVarP(&logFile, "log-file", "l", "flakeguard.log.json", "File to store flakeguard logs")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "L", "info", "Log level to use")
 	rootCmd.PersistentFlags().
 		BoolVarP(&enableConsoleLogs, "enable-console-logs", "c", false, "Enable console logs for flakeguard")
 
+	// Run behavior
 	rootCmd.PersistentFlags().
 		IntVarP(&runs, "runs", "r", 5, "Number of times to run each test in detect mode, or the number of times to retry a test in guard mode")
 	rootCmd.PersistentFlags().
 		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-output", "Directory to store flakeguard outputs")
+	rootCmd.PersistentFlags().
+		BoolVarP(&dryRun, "dry-run", "d", false, "Disables making any changes to the codebase and prevents reporting results to outside services (Splunk, Slack, etc.)")
+
+	// Reporting
+	// Splunk
+	rootCmd.PersistentFlags().
+		StringVar(&splunkURL, "splunk-url", "", "Splunk HTTP Event Collector URL")
+	rootCmd.PersistentFlags().
+		StringVar(&splunkToken, "splunk-token", "", "Splunk HTTP Event Collector token")
+	rootCmd.PersistentFlags().
+		StringVar(&splunkIndex, "splunk-index", "flakeguard_json", "Splunk index to send events to")
+	rootCmd.PersistentFlags().
+		StringVar(&splunkSourceType, "splunk-source-type", "flakeguard_json", "Splunk source type to send events to")
+
+	// DX
+	rootCmd.PersistentFlags().
+		StringVar(&dxWebhookURL, "dx-webhook-url", "", "DX webhook URL to send events to")
+
+	// Slack
+	rootCmd.PersistentFlags().
+		StringVar(&slackWebhookURL, "slack-webhook-url", "", "Slack webhook URL to send events to")
 
 	// Disable flag parsing after -- to allow passing through to gotestsum
 	rootCmd.Flags().SetInterspersed(false)
@@ -120,4 +160,32 @@ func parseArgs(args []string) (gotestsumFlags []string, goTestFlags []string) {
 		Strs("go_test_flags", goTestFlags).
 		Msg("Parsed Flags")
 	return gotestsumFlags, goTestFlags
+}
+
+func testRunInfo(l zerolog.Logger, repoPath string) (report.TestRunInfo, error) {
+	repoInfo, err := git.GetRepoInfo(l, repoPath)
+	if err != nil {
+		return report.TestRunInfo{}, fmt.Errorf("failed to get repo info: %w", err)
+	}
+
+	t := report.TestRunInfo{
+		RepoURL:         repoInfo.URL,
+		RepoOwner:       repoInfo.Owner,
+		RepoName:        repoInfo.Name,
+		DefaultBranch:   repoInfo.DefaultBranch,
+		OnDefaultBranch: repoInfo.CurrentBranch == repoInfo.DefaultBranch,
+		HeadBranch:      repoInfo.CurrentBranch,
+		HeadCommit:      repoInfo.CurrentCommit,
+	}
+
+	githubEnv, err := github.ActionsEnvVars()
+	if err != nil && !errors.Is(err, github.ErrNotInActions) {
+		return t, fmt.Errorf("failed to get GitHub Actions environment variables: %w", err)
+	} else {
+		t.GitHubEvent = githubEnv.EventName
+		t.HeadBranch = githubEnv.HeadRef
+		t.BaseBranch = githubEnv.BaseRef
+	}
+
+	return t, nil
 }

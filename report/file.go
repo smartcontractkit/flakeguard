@@ -15,7 +15,6 @@ func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 	l.Trace().Str("file", file).Msg("Writing report to file")
 	start := time.Now()
 
-	//nolint:gosec // G304 we're not writing to a file that we don't control
 	reportFile, err := os.Create(file)
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)
@@ -89,7 +88,6 @@ func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 		return fmt.Errorf("failed to marshal report to JSON: %w", err)
 	}
 
-	//nolint:gosec // G304 we're not writing to a file that we don't control
 	jsonFile, err := os.Create(file)
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)

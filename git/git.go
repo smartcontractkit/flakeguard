@@ -8,11 +8,12 @@ import (
 )
 
 type RepoInfo struct {
-	Owner  string
-	Name   string
-	URL    string
-	Branch string
-	Commit string
+	Owner         string
+	Name          string
+	URL           string
+	CurrentBranch string
+	CurrentCommit string
+	DefaultBranch string
 }
 
 func GetRepoInfo(l zerolog.Logger, path string) (*RepoInfo, error) {
@@ -27,8 +28,8 @@ func GetRepoInfo(l zerolog.Logger, path string) (*RepoInfo, error) {
 	}
 
 	info := &RepoInfo{
-		Branch: head.Name().Short(),
-		Commit: head.Hash().String(),
+		CurrentBranch: head.Name().Short(),
+		CurrentCommit: head.Hash().String(),
 	}
 
 	remotes, err := repo.Remotes()
@@ -41,8 +42,23 @@ func GetRepoInfo(l zerolog.Logger, path string) (*RepoInfo, error) {
 		return info, nil
 	}
 
-	info.URL = remotes[0].Config().URLs[0]
-	info.Name = remotes[0].Config().Name
+	// Get the default branch from the remote HEAD reference
+	remote := remotes[0]
+	refs, err := remote.List(&git.ListOptions{})
+	if err != nil {
+		l.Warn().Err(err).Msg("Failed to list remote references")
+	} else {
+		// Look for HEAD reference which points to the default branch
+		for _, ref := range refs {
+			if ref.Name().String() == "HEAD" && ref.Target() != "" {
+				info.DefaultBranch = ref.Target().Short()
+				break
+			}
+		}
+	}
+
+	info.URL = remote.Config().URLs[0]
+	info.Name = remote.Config().Name
 
 	return info, nil
 }

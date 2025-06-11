@@ -34,7 +34,6 @@ func guardTests(_ *cobra.Command, args []string) error {
 		"--packages=./...",
 	}
 
-	fmt.Println("DEBUG: args", args)
 	gotestsumFlags, goTestFlags := parseArgs(args)
 
 	// Add gotestsum flags first
@@ -50,7 +49,6 @@ func guardTests(_ *cobra.Command, args []string) error {
 	fmt.Println(command)
 	logger.Info().Msgf("Running command: %s", command)
 
-	//nolint:gosec // G204 we need to call out to gotestsum
 	gotestsumCmd := exec.Command("go", fullArgs...)
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr

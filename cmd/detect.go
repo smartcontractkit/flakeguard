@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -16,14 +16,18 @@ import (
 
 const detectFileOutput = "%s/detect-%d.json"
 
+var (
+	// Detect specific flags
+	durationTarget time.Duration
+)
+
 var detectCmd = &cobra.Command{
 	Use:   "detect",
 	Short: "Detect flaky tests",
-	RunE:  detectFlakyTests,
-}
+	Long: `Detect flaky tests by running the full test suites multiple times under the same conditions.
 
-func init() {
-	rootCmd.AddCommand(detectCmd)
+Test results are analyzed to determine which tests are flaky, and results are reported to various destinations, if configured.`,
+	RunE: detectFlakyTests,
 }
 
 func detectFlakyTests(_ *cobra.Command, args []string) error {
@@ -44,11 +48,16 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 		detectFiles = append(detectFiles, detectFile)
 	}
 
-	err := report.New(
+	testRunInfo, err := testRunInfo(logger, ".")
+	if err != nil {
+		return fmt.Errorf("failed to get test run info: %w", err)
+	}
+
+	err = report.New(
 		logger,
+		testRunInfo,
 		detectFiles,
-		report.ToConsole(),
-		report.ToFile(filepath.Join(outputDir, "flakeguard-report.txt")),
+		report.ReportDir(outputDir),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create report: %w", err)
@@ -73,13 +82,18 @@ func runDetect(run int, gotestsumFlags []string, goTestFlags []string) (string, 
 	fmt.Println(command)
 	logger.Info().Msgf("Running command: %s", command)
 
-	//nolint:gosec // G204 we need to call out to gotestsum
 	gotestsumCmd := exec.Command("go", fullArgs...)
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr
 
 	err := gotestsumCmd.Run()
 	return fmt.Sprintf(detectFileOutput, outputDir, run), handleTestRunError(run, err)
+}
+
+func init() {
+	rootCmd.AddCommand(detectCmd)
+	detectCmd.Flags().
+		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This will not abort in the middle of a run, and is a soft-limit.")
 }
 
 func handleTestRunError(run int, err error) error {
