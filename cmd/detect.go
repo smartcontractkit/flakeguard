@@ -80,7 +80,6 @@ func runDetect(run int, gotestsumFlags []string, goTestFlags []string) (string, 
 	fmt.Println(command)
 	logger.Info().Msgf("Running command: %s", command)
 
-	//nolint:gosec // G204 we need to call out to gotestsum
 	gotestsumCmd := exec.Command("go", fullArgs...)
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr

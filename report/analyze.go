@@ -54,11 +54,11 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 			summary.UniqueTestsRun++
 			testRunNumber[line.Package][line.Test] = 1
 			result = &TestResult{
-				TimeRun:     line.Time,
-				TestName:    line.Test,
-				TestPackage: line.Package,
-				Outputs:     make(map[int][]string),
-				Durations:   []time.Duration{},
+				TimeRun:   line.Time,
+				Name:      line.Test,
+				Package:   line.Package,
+				Outputs:   make(map[int][]string),
+				Durations: []time.Duration{},
 			}
 			results[line.Package][line.Test] = result
 		}
@@ -154,10 +154,10 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 
 	// Sort by package and name for easier reading
 	sort.Slice(resultSlice, func(i, j int) bool {
-		if resultSlice[i].TestPackage == resultSlice[j].TestPackage {
-			return resultSlice[i].TestName < resultSlice[j].TestName
+		if resultSlice[i].Package == resultSlice[j].Package {
+			return resultSlice[i].Name < resultSlice[j].Name
 		}
-		return resultSlice[i].TestPackage < resultSlice[j].TestPackage
+		return resultSlice[i].Package < resultSlice[j].Package
 	})
 
 	l.Trace().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")

@@ -13,13 +13,14 @@ import (
 
 // TestResult contains the results and outputs of a single test
 type TestResult struct {
-	// Identifying info on the test
-	TimeRun     time.Time `json:"time_run"`
-	TestName    string    `json:"test_name"`
-	TestPackage string    `json:"test_package"`
-	TestPath    string    `json:"test_path,omitempty"`   // TODO: Get this
-	CodeOwners  []string  `json:"code_owners,omitempty"` // TODO: Get this
+	// Identifying info of the test
+	TimeRun    time.Time `json:"time_run"`
+	Name       string    `json:"name"`
+	Package    string    `json:"package"`
+	Path       string    `json:"path,omitempty"`        // TODO: Get this
+	CodeOwners []string  `json:"code_owners,omitempty"` // TODO: Get this
 
+	// Meta information about the test run
 	TestRunInfo TestRunInfo `json:"test_run_info"`
 
 	// If any test in the same package panics, this is true.
@@ -58,9 +59,9 @@ type TestRunInfo struct {
 func (t *TestResult) String() string {
 	return fmt.Sprintf(
 		"TestPackage: %s, TestName: %s, TestPath: %s, PackagePanic: %t, Panic: %t, Timeout: %t, Race: %t, PassPercentage: %.2f, Runs: %d, Failures: %d, Successes: %d, Skips: %d",
-		t.TestPackage,
-		t.TestName,
-		t.TestPath,
+		t.Package,
+		t.Name,
+		t.Path,
 		t.PackagePanic,
 		t.Panic,
 		t.Timeout,

@@ -59,6 +59,7 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 
 	splunkTestResults := make([]splunkTestResult, 0, splunkBatchSize)
 	for count, result := range results {
+		result.Outputs = nil // Don't send our test output to Splunk, can be overkill
 		splunkTestResults = append(splunkTestResults, splunkTestResult{
 			Event: splunkTestResultEvent{
 				Event: "flakeguard_test_result",
@@ -135,13 +136,11 @@ func writeSplunkDryRunFile(l zerolog.Logger, splunkBody bytes.Buffer, reportOpti
 
 	var splunkFile *os.File
 	if _, err := os.Stat(splunkFileName); err == nil { // If the file exists, just append to it
-		//nolint:gosec // G304 We're not worried about the permissions here
 		splunkFile, err = os.OpenFile(splunkFileName, os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to open Splunk dry run file: %w", err)
 		}
 	} else {
-		//nolint:gosec // G304 We're not worried about the permissions here
 		splunkFile, err = os.Create(splunkFileName)
 		if err != nil {
 			return fmt.Errorf("failed to create Splunk dry run file: %w", err)
