@@ -1,3 +1,4 @@
+// Package flakeguard allows you to quarantine tests that have been identified as flaky.
 package flakeguard
 
 import (

@@ -1,3 +1,4 @@
+// Package golang enables ways to inspect and edit Go code.
 package golang
 
 import (

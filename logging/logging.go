@@ -1,3 +1,4 @@
+// Package logging provides extensive logging options for flakeguard.
 package logging
 
 import (

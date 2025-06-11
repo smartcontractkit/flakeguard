@@ -32,6 +32,7 @@ Test results are analyzed to determine which tests are flaky, and results are re
 
 func detectFlakyTests(_ *cobra.Command, args []string) error {
 	logger.Info().Msg("Detecting flaky tests")
+	// TODO: Try using gotestsum directly instead of go tool: https://github.com/gotestyourself/gotestsum/blob/main/cmd/main.go
 	// We're intentionally not doing these runs in parallel, we're also not using the native -count flag to run the tests multiple times.
 	// We want to model real-world behavior as closely as possible, and -count is not a good model for that.
 	// We only use -count=1 to disable test caching.

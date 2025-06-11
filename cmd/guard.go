@@ -26,8 +26,8 @@ func init() {
 
 func guardTests(_ *cobra.Command, args []string) error {
 	fullArgs := []string{
-		"tool",
-		"gotestsum",
+		"run",
+		"gotest.tools/gotestsum@v1.12.2",
 		"--jsonfile",
 		fmt.Sprintf("%s/guard.json", outputDir),
 		fmt.Sprintf("--rerun-fails=%d", runs),

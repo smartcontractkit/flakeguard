@@ -1,3 +1,7 @@
+// Package exit provides a way to exit the program with a specific exit code.
+// This helps identify what kind of error occurred and what to do about it.
+// If you notice that a Go build is failing, you'll likely want to directly fail flakeguard and bubble the error up.
+// But if the error is a test failure, based on the context, you might not want to fail flakeguard.
 package exit
 
 import "fmt"
