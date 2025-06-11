@@ -54,6 +54,7 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 			summary.UniqueTestsRun++
 			testRunNumber[line.Package][line.Test] = 1
 			result = &TestResult{
+				TimeRun:     line.Time,
 				TestName:    line.Test,
 				TestPackage: line.Package,
 				Outputs:     make(map[int][]string),

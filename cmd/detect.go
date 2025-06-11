@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -19,7 +18,10 @@ const detectFileOutput = "%s/detect-%d.json"
 var detectCmd = &cobra.Command{
 	Use:   "detect",
 	Short: "Detect flaky tests",
-	RunE:  detectFlakyTests,
+	Long: `Detect flaky tests by running the full test suites multiple times under the same conditions.
+
+Test results are analyzed to determine which tests are flaky, and results are reported to various destinations, if configured.`,
+	RunE: detectFlakyTests,
 }
 
 func init() {
@@ -44,11 +46,16 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 		detectFiles = append(detectFiles, detectFile)
 	}
 
-	err := report.New(
+	testRunInfo, err := testRunInfo(logger, ".")
+	if err != nil {
+		return fmt.Errorf("failed to get test run info: %w", err)
+	}
+
+	err = report.New(
 		logger,
+		testRunInfo,
 		detectFiles,
-		report.ToConsole(),
-		report.ToFile(filepath.Join(outputDir, "flakeguard-report.txt")),
+		report.ReportDir(outputDir),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create report: %w", err)

@@ -9,20 +9,18 @@ import (
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/flakeguard/git"
-	"github.com/smartcontractkit/flakeguard/github"
 )
 
 // TestResult contains the results and outputs of a single test
 type TestResult struct {
 	// Identifying info on the test
-	TestName    string   `json:"test_name"`
-	TestPackage string   `json:"test_package"`
-	TestPath    string   `json:"test_path,omitempty"`   // TODO: Get this
-	CodeOwners  []string `json:"code_owners,omitempty"` // TODO: Get this
+	TimeRun     time.Time `json:"time_run"`
+	TestName    string    `json:"test_name"`
+	TestPackage string    `json:"test_package"`
+	TestPath    string    `json:"test_path,omitempty"`   // TODO: Get this
+	CodeOwners  []string  `json:"code_owners,omitempty"` // TODO: Get this
 
-	TestRunInfo *TestRunInfo `json:"test_run_info,omitempty"`
+	TestRunInfo TestRunInfo `json:"test_run_info"`
 
 	// If any test in the same package panics, this is true.
 	// Same package panics can destroy the results of all other tests that were also running.
@@ -42,7 +40,7 @@ type TestResult struct {
 	Outputs map[int][]string `json:"outputs,omitempty"`
 }
 
-// TestRunInfo details meta information about the code when the test was run
+// TestRunInfo details meta information about the code where the tests were run
 type TestRunInfo struct {
 	RepoURL   string `json:"repo_url"`
 	RepoOwner string `json:"repo_owner"`
@@ -77,11 +75,12 @@ func (t *TestResult) String() string {
 
 // testOutputLine is a single line of test output from the go test -json
 type testOutputLine struct {
-	Action  string  `json:"Action,omitempty"`
-	Test    string  `json:"Test,omitempty"`
-	Package string  `json:"Package,omitempty"`
-	Output  string  `json:"Output,omitempty"`
-	Elapsed float64 `json:"Elapsed,omitempty"` // Decimal value in seconds
+	Action  string    `json:"Action,omitempty"`
+	Test    string    `json:"Test,omitempty"`
+	Package string    `json:"Package,omitempty"`
+	Output  string    `json:"Output,omitempty"`
+	Elapsed float64   `json:"Elapsed,omitempty"` // Decimal value in seconds
+	Time    time.Time `json:"Time,omitempty"`    // Time of the log
 }
 
 type reportSummary struct {
@@ -110,32 +109,59 @@ func (s *reportSummary) String() string {
 }
 
 type reportOptions struct {
-	toConsole bool
+	dryRun    bool
+	reportDir string
 
-	reportFile string
+	// Local reporting
+	toConsole    bool
+	reportFile   string
+	jsonFile     string
+	markdownFile string
 
-	jsonFile string
+	// Remote reporting
+	// Splunk
+	splunkURL        string
+	splunkToken      string
+	splunkIndex      string
+	splunkSourceType string
 
-	splunkURL            string
-	splunkToken          string
-	splunkIndex          string
-	splunkSource         string
-	splunkSourceType     string
-	splunkSourceHost     string
-	splunkSourceHostName string
-	splunkSourceHostIP   string
-
+	// DX
 	dxWebhookURL string
 
+	// Slack
 	slackWebhookURL string
+}
+
+func defaultOptions() reportOptions {
+	return reportOptions{
+		reportDir:    "./flakeguard-output",
+		toConsole:    true,
+		reportFile:   "flakeguard-report.txt",
+		jsonFile:     "flakeguard-report.json",
+		markdownFile: "flakeguard-report.md",
+	}
 }
 
 type Option func(*reportOptions)
 
-// ToConsole writes a concise report to the console
-func ToConsole() Option {
+// DryRun disables reporting to outside services (Splunk, Slack, etc.), useful for debugging
+func DryRun() Option {
 	return func(o *reportOptions) {
-		o.toConsole = true
+		o.dryRun = true
+	}
+}
+
+// ReportDir sets the directory to write reports files to. If not set, reports will be written to the current working directory.
+func ReportDir(path string) Option {
+	return func(o *reportOptions) {
+		o.reportDir = path
+	}
+}
+
+// SilenceConsole disables writing a concise report to the console
+func SilenceConsole() Option {
+	return func(o *reportOptions) {
+		o.toConsole = false
 	}
 }
 
@@ -154,16 +180,11 @@ func ToJSON(path string) Option {
 }
 
 // TODO: Add support for sending to Splunk via HTTP Event Collector
-func ToSplunk(url, token, index, source, sourceType, sourceHost, sourceHostName, sourceHostIP string) Option {
+func ToSplunk(url, token, index string) Option {
 	return func(o *reportOptions) {
 		o.splunkURL = url
 		o.splunkToken = token
 		o.splunkIndex = index
-		o.splunkSource = source
-		o.splunkSourceType = sourceType
-		o.splunkSourceHost = sourceHost
-		o.splunkSourceHostName = sourceHostName
-		o.splunkSourceHostIP = sourceHostIP
 	}
 }
 
@@ -182,8 +203,8 @@ func ToSlack(webhookURL string) Option {
 }
 
 // New creates a new report from scanning go test -json output. It will then send the report to selected destinations.
-func New(l zerolog.Logger, files []string, options ...Option) error {
-	opts := reportOptions{}
+func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...Option) error {
+	opts := defaultOptions()
 	for _, option := range options {
 		option(&opts)
 	}
@@ -196,6 +217,10 @@ func New(l zerolog.Logger, files []string, options ...Option) error {
 	summary, results, err := analyzeTestOutput(l, lines)
 	if err != nil {
 		return fmt.Errorf("failed to analyze test output: %w", err)
+	}
+
+	for _, result := range results {
+		result.TestRunInfo = testRunInfo
 	}
 
 	eg := errgroup.Group{}
@@ -258,26 +283,4 @@ func readTestOutput(l zerolog.Logger, files ...string) ([]*testOutputLine, error
 		Str("duration", time.Since(start).String()).
 		Msg("Read test output")
 	return lines, nil
-}
-
-func testRunInfo(l zerolog.Logger, repoPath string) (*TestRunInfo, error) {
-	repoInfo, err := git.GetRepoInfo(l, repoPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repo info: %w", err)
-	}
-
-	t := &TestRunInfo{
-		RepoURL:    repoInfo.URL,
-		RepoOwner:  repoInfo.Owner,
-		RepoName:   repoInfo.Name,
-		HeadBranch: repoInfo.Branch,
-		HeadCommit: repoInfo.Commit,
-	}
-
-	if github.IsActions() {
-		t.GitHubEvent = github.Event()
-		t.BaseBranch, t.BaseCommit = github.Branches()
-	}
-
-	return t, nil
 }

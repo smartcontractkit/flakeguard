@@ -15,5 +15,5 @@ func TestPackages(t *testing.T) {
 	l := testhelpers.Logger(t)
 	packages, err := Packages(l, ".")
 	require.NoError(t, err)
-	require.Greater(t, len(packages), 0)
+	require.NotEmpty(t, packages)
 }

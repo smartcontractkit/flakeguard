@@ -34,7 +34,6 @@ func guardTests(_ *cobra.Command, args []string) error {
 		"--packages=./...",
 	}
 
-	fmt.Println("DEBUG: args", args)
 	gotestsumFlags, goTestFlags := parseArgs(args)
 
 	// Add gotestsum flags first
