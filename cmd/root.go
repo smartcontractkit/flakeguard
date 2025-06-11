@@ -1,3 +1,4 @@
+// Package cmd is the home of the cobra commands for flakeguard.
 package cmd
 
 import (
