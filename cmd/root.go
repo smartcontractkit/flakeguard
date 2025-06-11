@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -168,16 +169,22 @@ func testRunInfo(l zerolog.Logger, repoPath string) (report.TestRunInfo, error) 
 	}
 
 	t := report.TestRunInfo{
-		RepoURL:    repoInfo.URL,
-		RepoOwner:  repoInfo.Owner,
-		RepoName:   repoInfo.Name,
-		HeadBranch: repoInfo.CurrentBranch,
-		HeadCommit: repoInfo.CurrentCommit,
+		RepoURL:         repoInfo.URL,
+		RepoOwner:       repoInfo.Owner,
+		RepoName:        repoInfo.Name,
+		DefaultBranch:   repoInfo.DefaultBranch,
+		OnDefaultBranch: repoInfo.CurrentBranch == repoInfo.DefaultBranch,
+		HeadBranch:      repoInfo.CurrentBranch,
+		HeadCommit:      repoInfo.CurrentCommit,
 	}
 
-	if github.IsActions() {
-		t.GitHubEvent = github.Event()
-		t.BaseBranch, t.BaseCommit = github.Branches()
+	githubEnv, err := github.ActionsEnvVars()
+	if err != nil && !errors.Is(err, github.ErrNotInActions) {
+		return t, fmt.Errorf("failed to get GitHub Actions environment variables: %w", err)
+	} else {
+		t.GitHubEvent = githubEnv.EventName
+		t.HeadBranch = githubEnv.HeadRef
+		t.BaseBranch = githubEnv.BaseRef
 	}
 
 	return t, nil

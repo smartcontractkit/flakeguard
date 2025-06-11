@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -15,6 +16,11 @@ import (
 
 const detectFileOutput = "%s/detect-%d.json"
 
+var (
+	// Detect specific flags
+	durationTarget time.Duration
+)
+
 var detectCmd = &cobra.Command{
 	Use:   "detect",
 	Short: "Detect flaky tests",
@@ -22,10 +28,6 @@ var detectCmd = &cobra.Command{
 
 Test results are analyzed to determine which tests are flaky, and results are reported to various destinations, if configured.`,
 	RunE: detectFlakyTests,
-}
-
-func init() {
-	rootCmd.AddCommand(detectCmd)
 }
 
 func detectFlakyTests(_ *cobra.Command, args []string) error {
@@ -86,6 +88,12 @@ func runDetect(run int, gotestsumFlags []string, goTestFlags []string) (string, 
 
 	err := gotestsumCmd.Run()
 	return fmt.Sprintf(detectFileOutput, outputDir, run), handleTestRunError(run, err)
+}
+
+func init() {
+	rootCmd.AddCommand(detectCmd)
+	detectCmd.Flags().
+		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This will not abort in the middle of a run, and is a soft-limit.")
 }
 
 func handleTestRunError(run int, err error) error {

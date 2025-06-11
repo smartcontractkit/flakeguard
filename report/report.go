@@ -46,6 +46,10 @@ type TestRunInfo struct {
 	RepoURL   string `json:"repo_url"`
 	RepoOwner string `json:"repo_owner"`
 	RepoName  string `json:"repo_name"`
+	// The default branch of the repository
+	DefaultBranch string `json:"default_branch"`
+	// If the tests were run on the default branch
+	OnDefaultBranch bool `json:"on_default_branch"`
 	// The current branch and commit that the tests were run on
 	HeadBranch string `json:"head_branch"`
 	HeadCommit string `json:"head_commit"`
@@ -180,12 +184,21 @@ func ToJSON(path string) Option {
 	}
 }
 
-// TODO: Add support for sending to Splunk via HTTP Event Collector
-func ToSplunk(url, token, index string) Option {
+// ToSplunk sends the report to Splunk via HTTP Event Collector
+func ToSplunk(url, token, index, sourceType string) Option {
 	return func(o *reportOptions) {
-		o.splunkURL = url
-		o.splunkToken = token
-		o.splunkIndex = index
+		if url != "" {
+			o.splunkURL = url
+		}
+		if token != "" {
+			o.splunkToken = token
+		}
+		if index != "" {
+			o.splunkIndex = index
+		}
+		if sourceType != "" {
+			o.splunkSourceType = sourceType
+		}
 	}
 }
 
