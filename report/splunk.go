@@ -59,7 +59,7 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 		SetRetryWaitTime(100 * time.Millisecond).
 		SetRetryMaxWaitTime(1 * time.Second)
 
-	splunkBody := bytes.Buffer{}
+	splunkBody := &bytes.Buffer{}
 	for count, result := range results {
 		result.Outputs = nil // Don't send our test output to Splunk, can be overkill
 		err := writeSplunkEvent(splunkBody, result, splunkSourceType, splunkIndex)
@@ -112,7 +112,7 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 	return nil
 }
 
-func writeSplunkDryRunFile(l zerolog.Logger, splunkBody bytes.Buffer, reportOptions reportOptions) error {
+func writeSplunkDryRunFile(l zerolog.Logger, splunkBody *bytes.Buffer, reportOptions reportOptions) error {
 	splunkFileName := filepath.Join(reportOptions.reportDir, "splunk_test_results.json")
 	err := os.MkdirAll(reportOptions.reportDir, 0700)
 	if err != nil {
@@ -154,7 +154,7 @@ func writeSplunkDryRunFile(l zerolog.Logger, splunkBody bytes.Buffer, reportOpti
 }
 
 // writeSplunkEvent writes a single test result to the Splunk body to be sent to Splunk
-func writeSplunkEvent(splunkBody bytes.Buffer, result TestResult, splunkSourceType, splunkIndex string) error {
+func writeSplunkEvent(splunkBody *bytes.Buffer, result TestResult, splunkSourceType, splunkIndex string) error {
 	splunkEvent := splunkTestResult{
 		SourceType: splunkSourceType,
 		Index:      splunkIndex,
