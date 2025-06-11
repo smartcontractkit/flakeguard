@@ -39,8 +39,8 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 	}
 
 	const (
-		splunkBatchSize      = 100         // Batch results into groups of 100 to send to Splunk
-		splunkSizeLimitBytes = 100_000_000 // 100MB. Actual limit is over 800MB, but that's excessive
+		// Actual splunk limit is over 800MB for a single request, but sending that much risks hitting weird limits and timeouts
+		splunkSizeLimitBytes = 100_000_000 // 100MB
 	)
 
 	l.Debug().
@@ -57,39 +57,22 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 		SetRetryWaitTime(100 * time.Millisecond).
 		SetRetryMaxWaitTime(1 * time.Second)
 
-	splunkTestResults := make([]splunkTestResult, 0, splunkBatchSize)
+	splunkBody := bytes.Buffer{}
 	for count, result := range results {
 		result.Outputs = nil // Don't send our test output to Splunk, can be overkill
-		splunkTestResults = append(splunkTestResults, splunkTestResult{
-			Event: splunkTestResultEvent{
-				Event: "flakeguard_test_result",
-				Data:  result,
-			},
-			SourceType: splunkSourceType,
-		})
+		err := writeSplunkEvent(splunkBody, result, splunkSourceType, splunkIndex)
+		if err != nil {
+			return fmt.Errorf("failed to write test result to buffer: %w", err)
+		}
 
-		if len(splunkTestResults) == splunkBatchSize || count == len(results)-1 { // Batch size hit, send to Splunk
+		if count == len(results)-1 ||
+			splunkBody.Len() >= splunkSizeLimitBytes { // Last result or size limit hit, send to Splunk
 			l.Trace().
-				Int("batchSize", len(splunkTestResults)).
+				Int("batchSizeKB", splunkBody.Len()/1024).
 				Msg("Sending batch of test results to Splunk")
 
 			// Splunk doesn't accept a JSON array, it wants individual JSON objects
 			// https://docs.splunk.com/Documentation/Splunk/latest/RESTREF/RESTinput#Bulk_Data_Input
-			splunkBody := bytes.Buffer{}
-			for _, result := range splunkTestResults {
-				json, err := json.Marshal(result)
-				if err != nil {
-					return fmt.Errorf("failed to marshal test result: %w", err)
-				}
-				_, err = splunkBody.Write(json)
-				if err != nil {
-					return fmt.Errorf("failed to write test result to buffer: %w", err)
-				}
-				_, err = splunkBody.WriteString("\n")
-				if err != nil {
-					return fmt.Errorf("failed to write test result to buffer: %w", err)
-				}
-			}
 
 			// Append to a file for dry run mode
 			if reportOptions.dryRun {
@@ -99,13 +82,13 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 				}
 				l.Debug().
 					Str("file", filepath.Join(reportOptions.reportDir, "splunk_test_results.json")).
-					Int("batchSize", len(splunkTestResults)).
+					Int("batchSizeKB", splunkBody.Len()/1024).
 					Msg("Dry Run: Wrote Splunk batch to file")
 				return nil
 			}
 
 			resp, err := client.R().
-				SetBody(splunkTestResults).
+				SetBody(splunkBody).
 				Post("")
 			if err != nil {
 				return fmt.Errorf("failed to send test results to Splunk: %w", err)
@@ -114,10 +97,10 @@ func Splunk(l zerolog.Logger, results []TestResult, reportOptions reportOptions)
 				return fmt.Errorf("failed to send test results to Splunk: %s", resp.String())
 			}
 			l.Trace().
-				Int("batchSize", len(splunkTestResults)).
+				Int("batchSizeKB", splunkBody.Len()/1024).
 				Msg("Sent batch of test results to Splunk")
 
-			splunkTestResults = make([]splunkTestResult, 0, splunkBatchSize)
+			splunkBody.Reset()
 		}
 	}
 
@@ -164,6 +147,31 @@ func writeSplunkDryRunFile(l zerolog.Logger, splunkBody bytes.Buffer, reportOpti
 	_, err = splunkFile.WriteString("\n")
 	if err != nil {
 		return fmt.Errorf("failed to write Splunk dry run file: %w", err)
+	}
+	return nil
+}
+
+// writeSplunkEvent writes a single test result to the Splunk body to be sent to Splunk
+func writeSplunkEvent(splunkBody bytes.Buffer, result TestResult, splunkSourceType, splunkIndex string) error {
+	splunkEvent := splunkTestResult{
+		SourceType: splunkSourceType,
+		Index:      splunkIndex,
+		Event: splunkTestResultEvent{
+			Event: "flakeguard_test_result",
+			Data:  result,
+		},
+	}
+	json, err := json.Marshal(splunkEvent)
+	if err != nil {
+		return fmt.Errorf("failed to marshal test result: %w", err)
+	}
+	_, err = splunkBody.Write(json)
+	if err != nil {
+		return fmt.Errorf("failed to write test result to buffer: %w", err)
+	}
+	_, err = splunkBody.WriteString("\n")
+	if err != nil {
+		return fmt.Errorf("failed to write test result to buffer: %w", err)
 	}
 	return nil
 }
