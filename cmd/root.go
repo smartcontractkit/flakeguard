@@ -94,8 +94,9 @@ Examples:
 func init() {
 	// Logging
 	rootCmd.PersistentFlags().
-		StringVarP(&logFile, "log-file", "l", "flakeguard.log.json", "File to store flakeguard logs")
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "L", "info", "Log level to use")
+		StringVar(&logFile, "log-file", "flakeguard.log.json", "File to store flakeguard logs")
+	rootCmd.PersistentFlags().
+		StringVarP(&logLevel, "log-level", "l", "info", "Log level to use")
 	rootCmd.PersistentFlags().
 		BoolVarP(&enableConsoleLogs, "enable-console-logs", "c", false, "Enable console logs for flakeguard")
 
@@ -141,25 +142,21 @@ func Execute() {
 // flakeguard [flakeguard flags] -- [gotestsum flags] -- [go test flags]
 func parseArgs(args []string) (gotestsumFlags []string, goTestFlags []string) {
 	// Find the position of the first --
-	dashPos := -1
-	for i, arg := range args {
+	gotestsumFlags = make([]string, 0, len(args))
+	goTestFlags = make([]string, 0, len(args))
+	usingGotestsumFlags := true
+	for _, arg := range args {
 		if arg == "--" {
-			dashPos = i
-			break
+			usingGotestsumFlags = false
+			continue
+		}
+		if usingGotestsumFlags {
+			gotestsumFlags = append(gotestsumFlags, arg)
+		} else {
+			goTestFlags = append(goTestFlags, arg)
 		}
 	}
-	if dashPos != -1 {
-		gotestsumFlags = args[:dashPos]
-		goTestFlags = args[dashPos+1:]
-	} else {
-		gotestsumFlags = args
-		goTestFlags = []string{}
-	}
 
-	logger.Debug().
-		Strs("gotestsum_flags", gotestsumFlags).
-		Strs("go_test_flags", goTestFlags).
-		Msg("Parsed Flags")
 	return gotestsumFlags, goTestFlags
 }
 

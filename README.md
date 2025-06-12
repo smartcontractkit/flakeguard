@@ -41,3 +41,5 @@ We use [golangci-lint v2](https://golangci-lint.run/) for linting and formatting
 ```sh
 pre-commit install
 ```
+
+A handy debugging setup is available already in the included [.vscode](.vscode/) folder.

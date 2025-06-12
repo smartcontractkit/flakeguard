@@ -9,10 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const guardFileOutput = "guard-test-output.json"
+
 var guardCmd = &cobra.Command{
 	Use:   "guard [flakeguard flags] -- [gotestsum flags] -- [go test flags]",
 	Short: "Guard your tests",
-	Long: `Guard your tests by running them multiple times and retrying them if they fail.
+	Long: `Guard your CI/CD pipeline by running your tests multiple times and retrying them if they fail.
 
 Examples:
   flakeguard guard -- --format testname -- ./pkg/...
@@ -26,10 +28,10 @@ func init() {
 
 func guardTests(_ *cobra.Command, args []string) error {
 	fullArgs := []string{
-		"run",
-		"gotest.tools/gotestsum@v1.12.2",
+		"tool",
+		"gotestsum",
 		"--jsonfile",
-		fmt.Sprintf("%s/guard.json", outputDir),
+		guardFileOutput,
 		fmt.Sprintf("--rerun-fails=%d", runs),
 		"--packages=./...",
 	}
@@ -53,5 +55,4 @@ func guardTests(_ *cobra.Command, args []string) error {
 	gotestsumCmd.Stdout = os.Stdout
 	gotestsumCmd.Stderr = os.Stderr
 	return gotestsumCmd.Run()
-
 }
