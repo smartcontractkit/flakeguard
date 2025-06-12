@@ -1,30 +1,83 @@
 # Flakeguard Design
 
-An overview of how Flakeguard is designed and how it interacts with other services. This is a living doc and can change as the scope, plans, and existing structure of Flakeguard changes.
-
-## Flakeguard `detect`
-
-The `detect` command is used to run test suites over and over and detect if any of them are flaky.
-
-## Flakeguard `guard`
-
-The `guard` command will guard your CI/CD systems from suffering the consequences of flaky tests.
+A high-level design document of how Flakeguard works, and how it interacts with other services. This is a living doc and can change as the scope, plans, and existing structure of Flakeguard changes.
 
 ## Flakeguard's Outside Systems
 
-Flakeguard (optionally, but ideally) relies on a few different outside systems in order to make it a more scalable solution.
+Flakeguard relies on a few different outside systems in order to make it a scalable and stateless tool.
 
+```mermaid
+flowchart
+  fg[Flakeguard CLI]
+  gh[GitHub]
+  r[(Reporters)]
+  t[/Ticketers/]
+
+  fg --> gh
+  gh --> fg
+  r --> fg
+  fg --> r
+  t --> fg
+  fg --> t
+```
+
+* `GitHub`, the system for git code management and CI/CD. This can expand to other systems later, but for now our only focus is on `GitHub`.
 * `Reporters`, systems like [Splunk](https://www.splunk.com/) and [DX](https://getdx.com/), are used to store and retrieve data on the status of your flaky tests (e.g. how flaky has TestX been in the past 7 days).
 * `Ticketers`, systems like [Jira](https://jira.atlassian.com/), are used to create tickets that assign work to fix tests identified as flakes. Flakeguard scans for tickets that already exist to add more detail to them, or closed tickets for the same test, so that it can attach context.
 
 ```mermaid
-flowchart LR
-  reps[(Reporters)] --> Flakeguard
-  ticks[/Ticketers/] --> Flakeguard
-  Flakeguard --> reps
-  Flakeguard --> ticks
+sequenceDiagram
+  participant fg as Flakeguard CLI
+  participant gh as GitHub
+  participant r as Reporters
+  participant t as Ticketers
 
+  gh->>fg: Run CI
+  fg->>fg: Run Tests n times
+  fg->>fg: Analyze Test Output
+  fg->>r: Send Test Results
+  fg->>r: Request Results History
+  r-->>fg: Provide History
+  fg->>t: Request Ticket Statuses
+  t-->>fg: Provide Ticket Statuses
+  fg->>fg: Determine which tests to quarantine
+  fg->>t: Open/Update Flaky Test Tickets
+  fg->>t: Close Non-Flaky Test Tickets
+  fg->>gh: Quarantine Flaky Tests
+  fg->>gh: Reinstate Non-Flaky Tests
 ```
+
+## Quarantine and Reinstatement Process
+
+We're considering two approaches, and I believe we can mix-and-match them depending on our needs and what bottlenecks we experience in practice.
+
+### Batch PRs
+
+When running Flakeguard on a cron/dispatch basis, we can make a large PR that quarantines all tests that have hit a certain threshold.
+
+#### Pros
+
+* No merge conflicts to consider.
+* Manual intervention to fix a bad or incapable quarantine will be smoother if necessary.
+* One team owning these PRs likely leads to higher quality reviews and mitigation overall.
+
+#### Cons
+
+* Slow quarantine resolution (less than 12 hours is probably as fast as it can reasonably get). Longer if the team is understaffed or on vacation.
+
+### Hijack PRs for Flakeguard Commits
+
+Instead of doing a large PR that will likely be the daily chore of a single team to work with, instead make merging quarantine changes the responsibility of
+
+#### Pros
+
+* Not bottlenecked on a single team to approve the PR.
+* Much more immediate quarantine resolution.
+
+#### Cons
+
+* Can run into merge conflicts galore, will probably need some system to deal with these.
+* Some tests (like complex subtests) can not be easily quarantined and my need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
 
 ## Flakeguard's Usage of [gotestsum](https://github.com/gotestyourself/gotestsum)
 

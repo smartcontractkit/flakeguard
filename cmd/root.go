@@ -43,7 +43,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flakeguard [flags] [-- gotestsum-flags] [-- go-test-flags]",
+	Use:   "flakeguard [detect | guard] [flakeguard-flags] [-- gotestsum-flags] [-- go-test-flags]",
 	Short: "Detect and prevent flaky tests from disrupting CI/CD pipelines",
 	Long: `Flakeguard helps you detect and prevent flaky tests from disrupting CI/CD pipelines.
 It wraps gotestsum, so you can pass through all the flags you're used to using.
