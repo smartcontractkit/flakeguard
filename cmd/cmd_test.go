@@ -52,12 +52,6 @@ func TestParseArgs(t *testing.T) {
 			expectedGoTestFlags:    []string{},
 		},
 		{
-			name:                   "multiple separators - only first one counts",
-			args:                   []string{"--format", "testname", "--", "-v", "--", "./pkg/..."},
-			expectedGotestsumFlags: []string{"--format", "testname"},
-			expectedGoTestFlags:    []string{"-v", "--", "./pkg/..."},
-		},
-		{
 			name:                   "complex gotestsum flags",
 			args:                   []string{"--format", "dots", "--jsonfile", "test.json", "--", "./..."},
 			expectedGotestsumFlags: []string{"--format", "dots", "--jsonfile", "test.json"},

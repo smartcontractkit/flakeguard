@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Flakeguard",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/flakeguard/main.go",
+            "args": [
+                "-c",
+                "-l",
+                "trace",
+                "${input:subcommand}",
+                "--",
+                "--",
+                "./example_tests/...",
+                "-tags",
+                "examples"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "subcommand",
+            "type": "pickString",
+            "description": "Arguments to pass to flakeguard",
+            "default": "detect",
+            "options": [
+                "detect",
+                "guard"
+            ]
+        }
+    ]
+}

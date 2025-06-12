@@ -2,7 +2,12 @@ module github.com/smartcontractkit/flakeguard
 
 go 1.24.3
 
-tool gotest.tools/gotestsum
+
+tool (
+	github.com/vladopajic/go-test-coverage/v2
+	gotest.tools/gotestsum
+)
+
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1

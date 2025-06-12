@@ -27,6 +27,7 @@ var (
 
 // TODO: Implement to add the quarantine call to a test function
 func QuarantineTest(packageName, testName string) error {
+	// TODO: See if we can borrow gotestsum's approach: https://github.com/gotestyourself/gotestsum/tree/v1.12.2/cmd/tool/slowest
 	return errors.New("not implemented")
 }
 

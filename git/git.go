@@ -42,21 +42,7 @@ func GetRepoInfo(l zerolog.Logger, path string) (*RepoInfo, error) {
 		l.Warn().Str("path", path).Msg("No remotes found for repo")
 		return info, nil
 	}
-
-	// Get the default branch from the remote HEAD reference
 	remote := remotes[0]
-	refs, err := remote.List(&git.ListOptions{})
-	if err != nil {
-		l.Warn().Err(err).Msg("Failed to list remote references")
-	} else {
-		// Look for HEAD reference which points to the default branch
-		for _, ref := range refs {
-			if ref.Name().String() == "HEAD" && ref.Target() != "" {
-				info.DefaultBranch = ref.Target().Short()
-				break
-			}
-		}
-	}
 
 	info.URL = remote.Config().URLs[0]
 	info.Name = remote.Config().Name

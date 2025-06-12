@@ -2,19 +2,22 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	gotestsumCmd "gotest.tools/gotestsum/cmd"
+
+	"slices"
 
 	"github.com/smartcontractkit/flakeguard/exit"
 	"github.com/smartcontractkit/flakeguard/report"
 )
 
-const detectFileOutput = "%s/detect-%d.json"
+const detectFileOutput = "detect-test-output-%d.json"
 
 var (
 	// Detect specific flags
@@ -27,27 +30,50 @@ var detectCmd = &cobra.Command{
 	Long: `Detect flaky tests by running the full test suites multiple times under the same conditions.
 
 Test results are analyzed to determine which tests are flaky, and results are reported to various destinations, if configured.`,
-	RunE: detectFlakyTests,
+	RunE: runDetectCmd,
 }
 
-func detectFlakyTests(_ *cobra.Command, args []string) error {
-	logger.Info().Msg("Detecting flaky tests")
-	// TODO: Try using gotestsum directly instead of go tool: https://github.com/gotestyourself/gotestsum/blob/main/cmd/main.go
-	// We're intentionally not doing these runs in parallel, we're also not using the native -count flag to run the tests multiple times.
-	// We want to model real-world behavior as closely as possible, and -count is not a good model for that.
-	// We only use -count=1 to disable test caching.
-	gotestsumFlags, goTestFlags := parseArgs(args)
+func runDetectCmd(_ *cobra.Command, args []string) error {
+	originalGotestsumFlags, goTestFlags := parseArgs(args)
+	logger.Info().
+		Int("runs", runs).
+		Strs("enteredGotestsumFlags", originalGotestsumFlags).
+		Strs("enteredGoTestFlags", goTestFlags).
+		Strs("enteredArgs", args).
+		Msg("Detecting flaky tests")
+
+	if slices.Contains(originalGotestsumFlags, "--jsonfile") {
+		return fmt.Errorf("jsonfile flag cannot be overridden while using flakeguard")
+	}
+
+	for _, flag := range goTestFlags {
+		if strings.HasPrefix(flag, "-count=") {
+			return fmt.Errorf("-count flag in go test cannot be overridden while using flakeguard")
+		}
+	}
+
 	goTestFlags = append(goTestFlags, "-count=1")
 	detectFiles := make([]string, 0, runs)
+	startTime := time.Now()
+	timer := time.NewTimer(durationTarget)
+	defer timer.Stop()
+
+runLoop:
 	for run := range runs {
-		run := run + 1
-		logger.Info().Msgf("Running flake detection %d of %d", run, runs)
-		// TODO: Loop is breaking at final hit
-		detectFile, err := runDetect(run, gotestsumFlags, goTestFlags)
-		if err != nil {
-			return fmt.Errorf("failed to run test %d of %d: %w", run, runs, err)
+		select {
+		case <-timer.C:
+			logger.Warn().
+				Str("durationTarget", durationTarget.String()).
+				Str("elapsedTime", time.Since(startTime).String()).
+				Msg("Duration target hit, stopping detection")
+			break runLoop
+		default:
+			detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
+			if err := handleTestRunError(run, err); err != nil {
+				return err
+			}
+			detectFiles = append(detectFiles, detectFile)
 		}
-		detectFiles = append(detectFiles, detectFile)
 	}
 
 	testRunInfo, err := testRunInfo(logger, ".")
@@ -62,40 +88,35 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 		report.ReportDir(outputDir),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create report: %w", err)
+		return fmt.Errorf("failed to create flakeguard report: %w", err)
 	}
 
 	return nil
 }
 
-func runDetect(run int, gotestsumFlags []string, goTestFlags []string) (string, error) {
-	fullArgs := []string{"tool", "gotestsum", "--jsonfile", fmt.Sprintf(detectFileOutput, outputDir, run)}
+func runDetect(
+	run int,
+	originalGotestsumFlags []string,
+	goTestFlags []string,
+) (detectFile string, err error) {
+	detectFile = fmt.Sprintf(detectFileOutput, run+1)
+	gotestsumFlags := append(originalGotestsumFlags, "--jsonfile", filepath.Join(outputDir, detectFile))
+	fullArgs := append(gotestsumFlags, "--")
+	fullArgs = append(fullArgs, goTestFlags...)
+	logger.Info().
+		Strs("gotestsumFlags", gotestsumFlags).
+		Strs("goTestFlags", goTestFlags).
+		Strs("fullArgs", fullArgs).
+		Int("run", run+1).
+		Msg("Detect run")
 
-	// Add gotestsum flags first
-	fullArgs = append(fullArgs, gotestsumFlags...)
-
-	// Add go test flags if present
-	if len(goTestFlags) > 0 {
-		fullArgs = append(fullArgs, "--")
-		fullArgs = append(fullArgs, goTestFlags...)
-	}
-
-	command := fmt.Sprintf("go %s", strings.Join(fullArgs, " "))
-	fmt.Println(command)
-	logger.Info().Msgf("Running command: %s", command)
-
-	gotestsumCmd := exec.Command("go", fullArgs...)
-	gotestsumCmd.Stdout = os.Stdout
-	gotestsumCmd.Stderr = os.Stderr
-
-	err := gotestsumCmd.Run()
-	return fmt.Sprintf(detectFileOutput, outputDir, run), handleTestRunError(run, err)
+	return detectFile, gotestsumCmd.Run("gotestsum", fullArgs)
 }
 
 func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().
-		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This will not abort in the middle of a run, and is a soft-limit.")
+		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This is a soft-limit, and will not abort in the middle of a run.")
 }
 
 func handleTestRunError(run int, err error) error {

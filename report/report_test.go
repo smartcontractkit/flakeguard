@@ -1,7 +1,6 @@
 package report
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,8 +16,9 @@ func TestReadTestOutput(t *testing.T) {
 	logger := testhelpers.Logger(t)
 	lines, err := readTestOutput(
 		logger,
-		filepath.Join(testData, "example_all.log.json"),
-		filepath.Join(testData, "example_flaky.log.json"),
+		testData,
+		"example_all.log.json",
+		"example_flaky.log.json",
 	)
 	require.NoError(t, err)
 	// TODO: Better validation

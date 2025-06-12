@@ -1,3 +1,5 @@
+.PHONY: build lint test test_verbose test_unit test_unit_verbose test_race
+
 build:
 	go build -o flakeguard ./cmd/flakeguard/main.go
 
