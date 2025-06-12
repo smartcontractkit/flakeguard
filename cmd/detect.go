@@ -54,6 +54,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 
 	goTestFlags = append(goTestFlags, "-count=1")
 	detectFiles := make([]string, 0, runs)
+	startTime := time.Now()
 	timer := time.NewTimer(durationTarget)
 	defer timer.Stop()
 
@@ -61,7 +62,10 @@ runLoop:
 	for run := range runs {
 		select {
 		case <-timer.C:
-			logger.Warn().Str("duration_target", durationTarget.String()).Msg("Duration target hit, stopping detection")
+			logger.Warn().
+				Str("durationTarget", durationTarget.String()).
+				Str("elapsedTime", time.Since(startTime).String()).
+				Msg("Duration target hit, stopping detection")
 			break runLoop
 		default:
 			detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
@@ -112,7 +116,7 @@ func runDetect(
 func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().
-		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This will not abort in the middle of a run, and is a soft-limit.")
+		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This is a soft-limit, and will not abort in the middle of a run.")
 }
 
 func handleTestRunError(run int, err error) error {

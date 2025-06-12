@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -223,7 +224,7 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 		option(&opts)
 	}
 
-	lines, err := readTestOutput(l, files...)
+	lines, err := readTestOutput(l, opts.reportDir, files...)
 	if err != nil {
 		return fmt.Errorf("failed to read test output: %w", err)
 	}
@@ -246,13 +247,13 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 
 	if opts.reportFile != "" {
 		eg.Go(func() error {
-			return writeToTextFile(l, summary, results, opts.reportFile)
+			return writeToTextFile(l, summary, results, opts.reportDir, opts.reportFile)
 		})
 	}
 
 	if opts.jsonFile != "" {
 		eg.Go(func() error {
-			return writeToJSONFile(l, summary, results, opts.jsonFile)
+			return writeToJSONFile(l, summary, results, opts.reportDir, opts.jsonFile)
 		})
 	}
 
@@ -264,20 +265,21 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 }
 
 // readTestOutput reads the JSON output of a test suite run into structs
-func readTestOutput(l zerolog.Logger, files ...string) ([]*testOutputLine, error) {
+func readTestOutput(l zerolog.Logger, dir string, files ...string) ([]*testOutputLine, error) {
 	l.Debug().Strs("files", files).Msg("Reading test output")
 	start := time.Now()
 
 	lines := []*testOutputLine{}
 	for _, file := range files {
+		filePath := filepath.Join(dir, file)
 		//nolint:gosec // we're reading from our own files
-		jsonFile, err := os.Open(file)
+		jsonFile, err := os.Open(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open test output file %s: %w", file, err)
+			return nil, fmt.Errorf("failed to open test output file '%s': %w", filePath, err)
 		}
 		defer func() {
 			if err := jsonFile.Close(); err != nil {
-				l.Error().Str("path", file).Err(err).Msg("Failed to close test output file")
+				l.Error().Str("path", filePath).Err(err).Msg("Failed to close test output file")
 			}
 		}()
 

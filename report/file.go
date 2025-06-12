@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,18 +12,19 @@ import (
 )
 
 // writeToTextFile writes a flakeguard report to a human-readable text file
-func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
-	l.Trace().Str("file", file).Msg("Writing report to file")
+func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, dir string, file string) error {
+	filePath := filepath.Join(dir, file)
+	l.Trace().Str("file", filePath).Msg("Writing report to file")
 	start := time.Now()
 
-	reportFile, err := os.Create(file)
+	reportFile, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)
 	}
 	defer func() {
 		err := reportFile.Close()
 		if err != nil {
-			l.Error().Str("file", file).Err(err).Msg("Failed to close report file")
+			l.Error().Str("file", filePath).Err(err).Msg("Failed to close report file")
 		}
 	}()
 
@@ -71,8 +73,9 @@ func writeToTextFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 }
 
 // writeToJSONFile writes a flakeguard report to a JSON file
-func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, file string) error {
-	l.Trace().Str("file", file).Msg("Writing report to JSON file")
+func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestResult, dir string, file string) error {
+	filePath := filepath.Join(dir, file)
+	l.Trace().Str("file", filePath).Msg("Writing report to JSON file")
 	start := time.Now()
 
 	type jsonReport struct {
@@ -88,14 +91,14 @@ func writeToJSONFile(l zerolog.Logger, summary *reportSummary, results []*TestRe
 		return fmt.Errorf("failed to marshal report to JSON: %w", err)
 	}
 
-	jsonFile, err := os.Create(file)
+	jsonFile, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)
 	}
 	defer func() {
 		err := jsonFile.Close()
 		if err != nil {
-			l.Error().Str("file", file).Err(err).Msg("Failed to close report file")
+			l.Error().Str("file", filePath).Err(err).Msg("Failed to close report file")
 		}
 	}()
 
