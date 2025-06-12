@@ -42,6 +42,7 @@ func detectFlakyTests(_ *cobra.Command, args []string) error {
 	for run := range runs {
 		run := run + 1
 		logger.Info().Msgf("Running flake detection %d of %d", run, runs)
+		// TODO: Loop is breaking at final hit
 		detectFile, err := runDetect(run, gotestsumFlags, goTestFlags)
 		if err != nil {
 			return fmt.Errorf("failed to run test %d of %d: %w", run, runs, err)
