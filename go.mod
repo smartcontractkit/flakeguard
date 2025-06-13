@@ -11,7 +11,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/go-resty/resty/v2 v2.16.5
-	github.com/gofri/go-github-ratelimit v1.1.1
+	github.com/gofri/go-github-ratelimit/v2 v2.0.2
 	github.com/google/go-github/v72 v72.0.0
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/rs/zerolog v1.34.0

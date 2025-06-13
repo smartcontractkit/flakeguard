@@ -1,23 +1,29 @@
 package github
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/google/go-github/v72/github"
+	"github.com/rs/zerolog"
 	gh_graphql "github.com/shurcooL/githubv4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"maps"
 
 	"github.com/smartcontractkit/flakeguard/internal/testhelpers"
 )
 
 func TestNewClient(t *testing.T) {
 	// Uses t.Setenv, so we can't run it in parallel.
-	logger := testhelpers.Logger(t)
 
 	tests := []struct {
 		name        string
@@ -43,8 +49,8 @@ func TestNewClient(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Uses t.Setenv, so we can't run it in parallel.
 			t.Setenv(TokenEnvVar, tt.envToken)
-
-			client, err := NewClient(logger, tt.token, nil)
+			l := testhelpers.Logger(t)
+			client, err := NewClient(l, tt.token, nil)
 
 			if tt.expectError {
 				require.Error(t, err, "expected error")
@@ -70,96 +76,71 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestNewClientWithCustomTransport(t *testing.T) {
+func TestRateLimit(t *testing.T) {
 	t.Parallel()
-	logger := testhelpers.Logger(t)
-
-	// Create a mock transport
-	mockTransport := &mockRoundTripper{
-		responses: make(map[string]*http.Response),
+	if testing.Short() {
+		t.Skip("skipping rate limit test in short mode")
 	}
-
-	client, err := NewClient(logger, "test-token", mockTransport)
-
-	require.NoError(t, err)
-	assert.NotNil(t, client)
-	assert.NotNil(t, client.Rest)
-	assert.NotNil(t, client.GraphQL)
-}
-
-func TestClientRoundTripper(t *testing.T) {
-	t.Parallel()
-	logger := testhelpers.Logger(t)
-
-	// Test with nil next transport (should use default)
-	transport := clientRoundTripper("TEST", logger, nil)
-	assert.NotNil(t, transport)
-	assert.IsType(t, &loggingTransport{}, transport)
-
-	// Test with custom next transport
-	mockTransport := &mockRoundTripper{
-		responses: make(map[string]*http.Response),
-	}
-	transport = clientRoundTripper("TEST", logger, mockTransport)
-	assert.NotNil(t, transport)
-	assert.IsType(t, &loggingTransport{}, transport)
-
-	lt := transport.(*loggingTransport)
-	assert.Equal(t, "TEST", lt.clientType)
-	assert.Equal(t, mockTransport, lt.transport)
-}
-
-func TestLoggingTransportRoundTrip(t *testing.T) {
-	t.Parallel()
-	logger := testhelpers.Logger(t)
 
 	tests := []struct {
-		name          string
-		statusCode    int
-		headers       map[string]string
-		expectError   bool
-		isRateLimited bool
-		isMockRequest bool
+		name        string
+		statusCode  int
+		header      http.Header
+		expectMsgs  []string
+		expectError bool
+		body        string
 	}{
 		{
-			name:       "successful request",
+			name:       "warning",
 			statusCode: http.StatusOK,
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "4999",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "1",
-				"X-RateLimit-Reset":     fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()),
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{fmt.Sprint(RateLimitWarningThreshold - 1)},
+				"X-RateLimit-Used":      []string{"10"},
+				"X-RateLimit-Reset":     []string{"1718211600"},
 			},
+			body:        `{"login": "testuser"}`,
+			expectMsgs:  []string{RateLimitWarningMsg},
+			expectError: false,
 		},
 		{
-			name:       "rate limit warning",
-			statusCode: http.StatusOK,
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "50",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "4950",
-				"X-RateLimit-Reset":     fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()),
+			name:       "primary limit hit",
+			statusCode: http.StatusTooManyRequests,
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{"0"},
+				"X-RateLimit-Used":      []string{"100"},
+				"X-RateLimit-Reset": []string{
+					fmt.Sprint(time.Now().Add(time.Millisecond * 1).Unix()),
+				},
+				"X-RateLimit-Resource": []string{"core"},
 			},
-		},
-		{
-			name:       "mock request (no warning)",
-			statusCode: http.StatusOK,
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "50",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "4950",
-				"X-RateLimit-Reset":     fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()),
+			body: `{"message": "API rate limit exceeded"}`,
+			expectMsgs: []string{
+				RateLimitHitMsg,
+				`"limit":"primary"`,
 			},
-			isMockRequest: true,
+			expectError: true,
 		},
+		// Secondary rate limits will retry automatically
 		{
-			name:          "rate limited",
-			statusCode:    http.StatusTooManyRequests,
-			isRateLimited: true,
-		},
-		{
-			name:       "missing headers (defaults to 0)",
-			statusCode: http.StatusOK,
+			name:       "secondary limit hit",
+			statusCode: http.StatusTooManyRequests,
+			header: http.Header{
+				"X-RateLimit-Limit": []string{"100"},
+				"X-RateLimit-Used":  []string{"100"},
+				"X-RateLimit-Reset": []string{
+					fmt.Sprint(time.Now().Add(time.Millisecond * 100).Unix()),
+				},
+				"X-RateLimit-Resource": []string{"core"},
+				"Retry-After":          []string{"1"}, // Retry after 1 second
+			},
+			body: `{"message": "You have exceeded a secondary rate limit", "documentation_url": "https://docs.github.com/rest/overview/resources-in-the-rest-api#secondary-rate-limits"}`,
+			expectMsgs: []string{
+				RateLimitHitMsg,
+				`"limit":"secondary"`,
+			},
+			expectError: false,
 		},
 	}
 
@@ -167,216 +148,212 @@ func TestLoggingTransportRoundTrip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockTransport := &mockRoundTripper{
-				responses: make(map[string]*http.Response),
-			}
+			var (
+				logs = bytes.NewBuffer(nil)
+				l    = testhelpers.Logger(
+					t,
+					testhelpers.WithWriters(logs),
+					testhelpers.LogLevel("trace"),
+				)
+			)
 
-			transport := &loggingTransport{
-				transport:  mockTransport,
-				logger:     logger,
-				clientType: "TEST",
-			}
+			var (
+				retryCount = 0
+				writeErr   error
+			)
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				l.Trace().
+					Str("method", r.Method).
+					Str("url", r.URL.String()).
+					Interface("headers", r.Header).
+					Msg("Request to mock server")
 
-			// Create test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				for key, value := range tt.headers {
-					w.Header().Set(key, value)
-				}
-				w.WriteHeader(tt.statusCode)
-				_, err := w.Write([]byte(`{"message": "test"}`))
-				if err != nil {
-					t.Errorf("failed to write response: %v", err)
+				if retryCount >= 1 { // Pass after first retry
+					w.WriteHeader(http.StatusOK)
+					_, writeErr = w.Write([]byte(`{"login": "testuser"}`))
 					return
 				}
-			}))
-			defer server.Close()
 
-			// Create request
-			req, err := http.NewRequest("GET", server.URL, nil)
+				maps.Copy(w.Header(), tt.header)
+				w.WriteHeader(tt.statusCode)
+				_, writeErr = w.Write([]byte(tt.body))
+				retryCount++
+			}))
+			defer ts.Close()
+
+			client, err := NewClient(l, "", nil)
+			require.NoError(t, err)
+			require.NotNil(t, client)
+
+			// Point the client to our test server
+			client.Rest.BaseURL, err = url.Parse(ts.URL + "/")
 			require.NoError(t, err)
 
-			if tt.isMockRequest {
-				req.Header.Set("Authorization", "Bearer "+MockToken)
-			} else {
-				req.Header.Set("Authorization", "Bearer real-token")
-			}
-			req.Header.Set("User-Agent", "test-agent")
+			_, _, err = client.Rest.Users.Get(context.Background(), "testuser")
 
-			// Mock the transport to return our test server response
-			mockTransport.responses[req.URL.String()] = &http.Response{
-				StatusCode: tt.statusCode,
-				Header:     make(http.Header),
-				Request:    req,
+			// Check for expected log messages
+			for _, expectMsg := range tt.expectMsgs {
+				assert.Contains(t, logs.String(), expectMsg, "Did not find expected message in logs")
 			}
-
-			// Copy headers to response
-			for key, value := range tt.headers {
-				mockTransport.responses[req.URL.String()].Header.Set(key, value)
-			}
-
-			// Execute request
-			resp, err := transport.RoundTrip(req)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				return
+				require.Error(t, err, "expected error")
+			} else {
+				require.NoError(t, err, "expected no error")
 			}
-
-			require.NoError(t, err)
-			assert.NotNil(t, resp)
-			assert.Equal(t, tt.statusCode, resp.StatusCode)
+			require.NoError(t, writeErr, "expected no error writing to response writer")
 		})
 	}
 }
 
-func TestLoggingTransportInvalidHeaders(t *testing.T) {
+func TestRateLimitHeaders(t *testing.T) {
 	t.Parallel()
-	logger := testhelpers.Logger(t)
 
-	mockTransport := &mockRoundTripper{
-		responses: make(map[string]*http.Response),
-	}
-
-	transport := &loggingTransport{
-		transport:  mockTransport,
-		logger:     logger,
-		clientType: "TEST",
-	}
-
-	// Test with invalid header values
-	invalidHeaders := []struct {
-		name    string
-		headers map[string]string
+	tests := []struct {
+		name        string
+		statusCode  int
+		header      http.Header
+		expectError bool
 	}{
 		{
-			name: "invalid remaining",
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "invalid",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "1",
-				"X-RateLimit-Reset":     "1234567890",
+			name: "good headers",
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{"10"},
+				"X-RateLimit-Used":      []string{"10"},
+				"X-RateLimit-Reset":     []string{"1718211600"},
 			},
+			statusCode: http.StatusOK,
 		},
 		{
-			name: "invalid limit",
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "4999",
-				"X-RateLimit-Limit":     "invalid",
-				"X-RateLimit-Used":      "1",
-				"X-RateLimit-Reset":     "1234567890",
+			name: "bad limit header",
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"bad"},
+				"X-RateLimit-Remaining": []string{"10"},
+				"X-RateLimit-Used":      []string{"10"},
+				"X-RateLimit-Reset":     []string{"1718211600"},
 			},
+			statusCode:  http.StatusOK,
+			expectError: true,
 		},
 		{
-			name: "invalid used",
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "4999",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "invalid",
-				"X-RateLimit-Reset":     "1234567890",
+			name: "bad remaining header",
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{"bad"},
+				"X-RateLimit-Used":      []string{"10"},
+				"X-RateLimit-Reset":     []string{"1718211600"},
 			},
+			statusCode:  http.StatusOK,
+			expectError: true,
 		},
 		{
-			name: "invalid reset",
-			headers: map[string]string{
-				"X-RateLimit-Remaining": "4999",
-				"X-RateLimit-Limit":     "5000",
-				"X-RateLimit-Used":      "1",
-				"X-RateLimit-Reset":     "invalid",
+			name: "bad used header",
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{"10"},
+				"X-RateLimit-Used":      []string{"bad"},
+				"X-RateLimit-Reset":     []string{"1718211600"},
 			},
+			statusCode:  http.StatusOK,
+			expectError: true,
+		},
+		{
+			name: "bad reset header",
+			header: http.Header{
+				"X-RateLimit-Limit":     []string{"100"},
+				"X-RateLimit-Remaining": []string{"10"},
+				"X-RateLimit-Used":      []string{"10"},
+				"X-RateLimit-Reset":     []string{"bad"},
+			},
+			statusCode:  http.StatusOK,
+			expectError: true,
 		},
 	}
 
-	for _, tt := range invalidHeaders {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequest("GET", "https://api.github.com/test", nil)
+			l := testhelpers.Logger(t)
+
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				maps.Copy(w.Header(), tt.header)
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer ts.Close()
+
+			client, err := NewClient(l, "", nil)
 			require.NoError(t, err)
+			require.NotNil(t, client)
 
-			// Mock response with invalid headers
-			mockResp := &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Request:    req,
+			resp, err := client.Rest.Client().Get(ts.URL)
+			if tt.expectError {
+				require.Error(t, err, "expected error")
+				return
 			}
-
-			for key, value := range tt.headers {
-				mockResp.Header.Set(key, value)
-			}
-
-			mockTransport.responses[req.URL.String()] = mockResp
-
-			// This should return an error due to invalid header conversion
-			_, err = transport.RoundTrip(req)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "failed to convert")
+			require.NoError(t, err, "expected no error")
+			require.NotNil(t, resp, "expected non nil response")
+			assert.Equal(t, tt.statusCode, resp.StatusCode, "expected status code to be %d", tt.statusCode)
 		})
 	}
+}
+
+const MockRoundTripperMsg = "Request to mock round tripper"
+
+func TestCustomRoundTripper(t *testing.T) {
+	t.Parallel()
+	logs := bytes.NewBuffer(nil)
+	l := testhelpers.Logger(t, testhelpers.LogLevel("trace"), testhelpers.WithSoleWriter(logs))
+
+	mockRT := &mockRoundTripper{
+		logger:     l,
+		statusCode: http.StatusOK,
+		header:     http.Header{},
+		body:       `{"login": "testuser"}`,
+	}
+
+	client, err := NewClient(mockRT.logger, "", mockRT)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	resp, err := client.Rest.Client().Get("https://api.github.com/users/testuser")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	assert.Contains(t, logs.String(), MockRoundTripperMsg, "expected log message")
 }
 
 // mockRoundTripper is a mock implementation of http.RoundTripper for testing
 type mockRoundTripper struct {
-	responses map[string]*http.Response
-	err       error
+	logger     zerolog.Logger
+	statusCode int
+	header     http.Header
+	body       string
+	custom     func(req *http.Request) (*http.Response, error)
+	err        error
 }
 
 func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.logger.Trace().
+		Str("method", req.Method).
+		Interface("headers", req.Header).
+		Str("url", req.URL.String()).
+		Msg(MockRoundTripperMsg)
+
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	if resp, ok := m.responses[req.URL.String()]; ok {
-		return resp, nil
+	if m.custom != nil {
+		return m.custom(req)
 	}
 
 	// Default response
 	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
+		StatusCode: m.statusCode,
+		Header:     m.header,
 		Request:    req,
+		Body:       io.NopCloser(bytes.NewBufferString(m.body)),
 	}, nil
-}
-
-func TestConstants(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, "GITHUB_TOKEN", TokenEnvVar)
-	assert.Equal(t, "mock-github-token", MockToken)
-}
-
-func TestMockTokenDetection(t *testing.T) {
-	t.Parallel()
-	logger := testhelpers.Logger(t)
-
-	mockTransport := &mockRoundTripper{
-		responses: make(map[string]*http.Response),
-	}
-
-	transport := &loggingTransport{
-		transport:  mockTransport,
-		logger:     logger,
-		clientType: "TEST",
-	}
-
-	// Test with mock token - should not trigger rate limit warning
-	req, err := http.NewRequest("GET", "https://api.github.com/test", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+MockToken)
-
-	mockResp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-		Request:    req,
-	}
-	mockResp.Header.Set("X-RateLimit-Remaining", "10") // This would normally trigger warning
-	mockResp.Header.Set("X-RateLimit-Limit", "5000")
-	mockResp.Header.Set("X-RateLimit-Used", "4990")
-	mockResp.Header.Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()))
-
-	mockTransport.responses[req.URL.String()] = mockResp
-
-	resp, err := transport.RoundTrip(req)
-
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

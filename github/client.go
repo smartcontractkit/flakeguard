@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gofri/go-github-ratelimit/github_ratelimit"
+	"github.com/gofri/go-github-ratelimit/v2/github_ratelimit"
+	"github.com/gofri/go-github-ratelimit/v2/github_ratelimit/github_primary_ratelimit"
+	"github.com/gofri/go-github-ratelimit/v2/github_ratelimit/github_secondary_ratelimit"
 	"github.com/google/go-github/v72/github"
 	"github.com/rs/zerolog"
 	gh_graphql "github.com/shurcooL/githubv4"
@@ -17,9 +18,10 @@ import (
 )
 
 const (
-	TokenEnvVar = "GITHUB_TOKEN"
-	// MockToken is invalid and only used for testing.
-	MockToken = "mock-github-token"
+	TokenEnvVar               = "GITHUB_TOKEN"
+	RateLimitWarningThreshold = 5
+	RateLimitWarningMsg       = "GitHub API requests nearing rate limit"
+	RateLimitHitMsg           = "GitHub API rate limit hit, sleeping until limit reset"
 )
 
 // Client is a wrapper around the GitHub REST and GraphQL API clients
@@ -47,7 +49,6 @@ func NewClient(
 	}
 
 	var (
-		err    error
 		next   http.RoundTripper
 		client = &Client{}
 	)
@@ -56,32 +57,47 @@ func NewClient(
 		next = optionalNext
 	}
 
-	onRateLimitHit := func(ctx *github_ratelimit.CallbackContext) {
-		l := l.Warn()
+	onPrimaryRateLimitHit := func(ctx *github_primary_ratelimit.CallbackContext) {
+		l := l.Warn().Str("limit", "primary")
 		if ctx.Request != nil {
 			l = l.Str("request_url", ctx.Request.URL.String())
 		}
 		if ctx.Response != nil {
 			l = l.Int("status", ctx.Response.StatusCode)
 		}
-		if ctx.SleepUntil != nil {
-			l = l.Time("sleep_until", *ctx.SleepUntil)
+		if ctx.Category != "" {
+			l = l.Str("category", string(ctx.Category))
+		}
+		if ctx.ResetTime != nil {
+			l = l.Str("reset_time", ctx.ResetTime.String())
+		}
+		l.Msg(RateLimitHitMsg)
+	}
+
+	onSecondaryRateLimitHit := func(ctx *github_secondary_ratelimit.CallbackContext) {
+		l := l.Warn().Str("limit", "secondary")
+		if ctx.Request != nil {
+			l = l.Str("request_url", ctx.Request.URL.String())
+		}
+		if ctx.Response != nil {
+			l = l.Int("status", ctx.Response.StatusCode)
+		}
+		if ctx.ResetTime != nil {
+			l = l.Str("reset_time", ctx.ResetTime.String())
 		}
 		if ctx.TotalSleepTime != nil {
 			l = l.Str("total_sleep_time", ctx.TotalSleepTime.String())
 		}
-		l.Msg("GitHub API rate limit hit, sleeping until limit reset")
+		l.Msg(RateLimitHitMsg)
 	}
 
-	baseClient, err := github_ratelimit.NewRateLimitWaiterClient(
+	rateLimiter := github_ratelimit.NewClient(
 		clientRoundTripper("REST", l, next),
-		github_ratelimit.WithLimitDetectedCallback(onRateLimitHit),
+		github_primary_ratelimit.WithLimitDetectedCallback(onPrimaryRateLimitHit),
+		github_secondary_ratelimit.WithLimitDetectedCallback(onSecondaryRateLimitHit),
 	)
-	if err != nil {
-		return nil, err
-	}
 
-	client.Rest = github.NewClient(baseClient)
+	client.Rest = github.NewClient(rateLimiter)
 	if githubToken != "" {
 		client.Rest = client.Rest.WithAuthToken(githubToken)
 		client.token = githubToken
@@ -182,13 +198,14 @@ func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		Int("call_limit", callLimit).
 		Int("calls_used", callsUsed).
 		Time("limit_reset", limitResetTime).
-		Str("response_url", resp.Request.URL.String()).
 		Logger()
 
-	mockRequest := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ") == MockToken
+	if resp.Request != nil {
+		l = l.With().Str("response_request_url", resp.Request.URL.String()).Logger()
+	}
 
-	if !mockRequest && callsRemaining <= 10 && callsRemaining%2 == 0 {
-		l.Warn().Msg("GitHub API request nearing rate limit")
+	if callsRemaining <= RateLimitWarningThreshold {
+		l.Warn().Msg(RateLimitWarningMsg)
 	}
 
 	l.Trace().Msg("GitHub API request completed")
