@@ -67,7 +67,7 @@ When running Flakeguard on a cron/dispatch basis, we can make a large PR that qu
 
 ### Hijack PRs for Flakeguard Commits
 
-Instead of doing a large PR that will likely be the daily chore of a single team to work with, instead make merging quarantine changes the responsibility of
+Instead of doing a large PR that will likely be the daily chore of a single team to work with, make merging quarantine changes the responsibility of individual developers by adding quarantine commits directly to their PRs.
 
 #### Pros
 
@@ -77,7 +77,25 @@ Instead of doing a large PR that will likely be the daily chore of a single team
 #### Cons
 
 * Can run into merge conflicts galore, will probably need some system to deal with these.
-* Some tests (like complex subtests) can not be easily quarantined and may need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
+* Some tests (like complex subtests) cannot be easily quarantined and may need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
+
+## Guard Mode
+
+A primary goal of Flakeguard is to **guard** your CI from flakes, and guard your main branch from new flakes being introduced. When running in `guard` mode, Flakeguard will detect newly added (and modified) tests and run some `detect` loops on them. If it finds that you're introducing newly flaky tests, it will block your PR.
+
+```mermaid
+flowchart TD
+  r[Run Flakeguard guard]
+  new[Look for Newly Added or Modified Tests]
+  run[Run Test Suite]
+  rerun[Re-Run Failing Tests n times]
+  detect[Run detect Loop on New Tests]
+
+  r-->run
+  r-->new
+  run-->rerun
+  new-->detect
+```
 
 ## Flakeguard's Usage of [gotestsum](https://github.com/gotestyourself/gotestsum)
 
