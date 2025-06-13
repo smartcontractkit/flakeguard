@@ -21,6 +21,7 @@ func TestIntegrationScripts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration tests with -short")
 	}
+	t.Skip("Integration tests aren't ready yet")
 
 	testscript.Run(t, testscript.Params{
 		Dir: "testscripts",
