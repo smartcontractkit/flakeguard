@@ -19,9 +19,18 @@ type options struct {
 	logLevelInput      string
 	logFileName        string
 	disableFileLogging bool
+	writers            []io.Writer
 }
 
 type Option func(*options)
+
+// WithWriters sets the writers to use for logging.
+// This is useful for testing logging output.
+func WithWriters(writers ...io.Writer) Option {
+	return func(o *options) {
+		o.writers = writers
+	}
+}
 
 // WithFileName sets the log file name.
 func WithFileName(logFileName string) Option {
@@ -44,6 +53,7 @@ func DisableConsoleLog() Option {
 	}
 }
 
+// DisableFileLogging disables only logging to a file.
 func DisableFileLogging() Option {
 	return func(o *options) {
 		o.disableFileLogging = true
@@ -72,7 +82,7 @@ func New(options ...Option) (zerolog.Logger, error) {
 		disableFileLogging = opts.disableFileLogging
 	)
 
-	writers := []io.Writer{}
+	writers := opts.writers
 	if !disableFileLogging {
 		err := os.WriteFile(logFileName, []byte{}, 0600)
 		if err != nil {

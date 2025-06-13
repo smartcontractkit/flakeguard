@@ -2,11 +2,14 @@
 package github
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -15,7 +18,7 @@ var (
 
 // Tracks GitHub Actions environment variables
 // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
-type githubActionsEnvVars struct {
+type actionsEnvVars struct {
 	Action           string `json:"GITHUB_ACTION,omitempty"              env:"GITHUB_ACTION"`
 	ActionPath       string `json:"GITHUB_ACTION_PATH,omitempty"         env:"GITHUB_ACTION_PATH"`
 	ActionRepository string `json:"GITHUB_ACTION_REPOSITORY,omitempty"   env:"GITHUB_ACTION_REPOSITORY"`
@@ -29,11 +32,7 @@ type githubActionsEnvVars struct {
 	GraphQLURL       string `json:"GITHUB_GRAPHQL_URL,omitempty"         env:"GITHUB_GRAPHQL_URL"`
 	HeadRef          string `json:"GITHUB_HEAD_REF,omitempty"            env:"GITHUB_HEAD_REF"`
 	// Job is the github-context job_id. This in no way matches to the numerical Job ID returned by the API, nor the name of the job.
-	Job string `json:"GITHUB_JOB,omitempty"                 env:"GITHUB_JOB"`
-	// JobName is a custom env var set by octometrics-action and describes the name of the job on the runner so we can match it with the API.
-	// There is currently no native way to do this in GitHub Actions.
-	// https://github.com/actions/toolkit/issues/550
-	JobName           string `json:"GITHUB_JOB_NAME,omitempty"            env:"GITHUB_JOB_NAME"`
+	Job               string `json:"GITHUB_JOB,omitempty"                 env:"GITHUB_JOB"`
 	Output            string `json:"GITHUB_OUTPUT,omitempty"              env:"GITHUB_OUTPUT"`
 	Path              string `json:"GITHUB_PATH,omitempty"                env:"GITHUB_PATH"`
 	Ref               string `json:"GITHUB_REF,omitempty"                 env:"GITHUB_REF"`
@@ -67,16 +66,30 @@ type githubActionsEnvVars struct {
 }
 
 // ActionsEnvVars returns the GitHub Actions environment variables if running in a GitHub Actions environment
-// Otherwise, it returns the error errNotInActions
-func ActionsEnvVars() (githubActionsEnvVars, error) {
+// Otherwise, it returns ErrNotInActions
+func ActionsEnvVars() (actionsEnvVars, error) {
 	if os.Getenv("GITHUB_ACTIONS") != "true" {
-		return githubActionsEnvVars{}, ErrNotInActions
+		return actionsEnvVars{}, ErrNotInActions
 	}
 
-	var envVars githubActionsEnvVars
+	var envVars actionsEnvVars
 	if err := env.Parse(&envVars); err != nil {
-		return githubActionsEnvVars{}, fmt.Errorf("unable to parse GitHub Actions environment variables: %w", err)
+		return actionsEnvVars{}, fmt.Errorf("unable to parse GitHub Actions environment variables: %w", err)
 	}
 
 	return envVars, nil
+}
+
+func RepoInfo(l zerolog.Logger, restClient *Client, repoOwner, repoName string) error {
+	repo, resp, err := restClient.Rest.Repositories.Get(context.Background(), repoOwner, repoName)
+	if err != nil {
+		return fmt.Errorf("failed to get GitHub repo info: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to get GitHub repo info: %s", resp.Status)
+	}
+	repo.GetDefaultBranch()
+
+	return nil
 }

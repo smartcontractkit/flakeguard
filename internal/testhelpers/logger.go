@@ -2,6 +2,7 @@
 package testhelpers
 
 import (
+	"io"
 	"os"
 	"testing"
 
@@ -18,7 +19,25 @@ const (
 type Option func(*options)
 
 type options struct {
-	logLevel string
+	logLevel   string
+	writers    []io.Writer
+	soleWriter io.Writer
+}
+
+// WithWriters sets additional writers to use for logging.
+// This is useful for testing logging output that you also want written to default writers.
+func WithWriters(writers ...io.Writer) Option {
+	return func(o *options) {
+		o.writers = writers
+	}
+}
+
+// WithSoleWriter sets a custom writer to use instead of the default writers.
+// This is useful for testing logging output that you don't want written anywhere else.
+func WithSoleWriter(writer io.Writer) Option {
+	return func(o *options) {
+		o.soleWriter = writer
+	}
 }
 
 // Silent disables tests logging to console.
@@ -61,8 +80,12 @@ func Logger(tb testing.TB, options ...Option) zerolog.Logger {
 	loggingOpts := []logging.Option{
 		logging.DisableFileLogging(),
 		logging.WithLevel(opts.logLevel),
+		logging.WithWriters(opts.writers...),
 	}
 	log, err := logging.New(loggingOpts...)
+	if opts.soleWriter != nil {
+		log = log.Output(opts.soleWriter)
+	}
 	require.NoError(tb, err, "error setting up logging")
 	log = log.With().Str("running_test", tb.Name()).Logger()
 	return log

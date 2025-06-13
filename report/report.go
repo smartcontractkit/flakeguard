@@ -51,14 +51,22 @@ type TestRunInfo struct {
 	DefaultBranch string `json:"default_branch"`
 	// If the tests were run on the default branch
 	OnDefaultBranch bool `json:"on_default_branch"`
-	// The current branch and commit that the tests were run on
+	// The current branch that the tests were run on, also the 'from' branch in a PR or merge
 	HeadBranch string `json:"head_branch"`
+	// The commit that the tests were run on, also the 'from' commit in a PR or merge
 	HeadCommit string `json:"head_commit"`
-	// The base branch and commit that the tests were run on (only applicable for PRs or merge groups)
+	// The 'to' branch in a PR or merge
 	BaseBranch string `json:"base_branch,omitempty"`
+	// The 'to' commit in a PR or merge
 	BaseCommit string `json:"base_commit,omitempty"`
 	// If the test was run in a GitHub Actions environment, this is the event that triggered the run
 	GitHubEvent string `json:"github_event,omitempty"`
+	// If the test was run in a GitHub Actions environment, this is the workflow that triggered the run
+	GitHubWorkflow string `json:"github_workflow,omitempty"`
+	// If the test was run in a GitHub Actions environment, this is the run ID
+	GitHubRunID string `json:"github_run_id,omitempty"`
+	// If the test was run in a GitHub Actions environment, this is the run number
+	GitHubRunNumber string `json:"github_run_number,omitempty"`
 }
 
 func (t *TestResult) String() string {
@@ -130,12 +138,6 @@ type reportOptions struct {
 	splunkToken      string
 	splunkIndex      string
 	splunkSourceType string
-
-	// DX
-	dxWebhookURL string
-
-	// Slack
-	slackWebhookURL string
 }
 
 func defaultOptions() reportOptions {
@@ -200,20 +202,6 @@ func ToSplunk(url, token, index, sourceType string) Option {
 		if sourceType != "" {
 			o.splunkSourceType = sourceType
 		}
-	}
-}
-
-// TODO: Add support for sending to DX via webhook
-func ToDX(webhookURL string) Option {
-	return func(o *reportOptions) {
-		o.dxWebhookURL = webhookURL
-	}
-}
-
-// TODO: Add support for sending to Slack via webhook
-func ToSlack(webhookURL string) Option {
-	return func(o *reportOptions) {
-		o.slackWebhookURL = webhookURL
 	}
 }
 

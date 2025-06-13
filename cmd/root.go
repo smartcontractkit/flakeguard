@@ -7,12 +7,13 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/flakeguard/exit"
-	"github.com/smartcontractkit/flakeguard/git"
-	"github.com/smartcontractkit/flakeguard/github"
+	fg_git "github.com/smartcontractkit/flakeguard/git"
+	fg_github "github.com/smartcontractkit/flakeguard/github"
 	"github.com/smartcontractkit/flakeguard/logging"
 	"github.com/smartcontractkit/flakeguard/report"
 )
@@ -30,6 +31,12 @@ var (
 	runs      int
 	outputDir string
 	dryRun    bool
+
+	// GitHub
+	// Flag for GitHub token
+	githubToken string
+	// Client for GitHub API
+	githubClient *fg_github.Client
 
 	// Reporting
 	splunkURL        string
@@ -53,6 +60,7 @@ Examples:
   flakeguard --runs 10 -- --format dots -- -v -run TestMyFunction`,
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Setup logging
 		loggingOpts := []logging.Option{}
 		if !enableConsoleLogs {
 			loggingOpts = append(loggingOpts, logging.DisableConsoleLog())
@@ -63,7 +71,6 @@ Examples:
 		if logFile != "" {
 			loggingOpts = append(loggingOpts, logging.WithFileName(fmt.Sprintf("%s/%s", outputDir, logFile)))
 		}
-
 		var err error
 		if err = os.MkdirAll(outputDir, 0750); err != nil {
 			return exit.New(exit.CodeFlakeguardError, err)
@@ -72,6 +79,12 @@ Examples:
 		if err != nil {
 			return exit.New(exit.CodeFlakeguardError, err)
 		}
+
+		githubClient, err = fg_github.NewClient(logger, githubToken, nil)
+		if err != nil {
+			return exit.New(exit.CodeFlakeguardError, err)
+		}
+
 		logger.Debug().
 			Str("version", version).
 			Str("commit", commit).
@@ -107,6 +120,10 @@ func init() {
 		StringVarP(&outputDir, "output-dir", "o", "./flakeguard-output", "Directory to store flakeguard outputs")
 	rootCmd.PersistentFlags().
 		BoolVarP(&dryRun, "dry-run", "d", false, "Disables making any changes to the codebase and prevents reporting results to outside services (Splunk, Slack, etc.)")
+
+	// GitHub
+	rootCmd.PersistentFlags().
+		StringVarP(&githubToken, "github-token", "t", "", "GitHub token to use for GitHub API requests, if not provided, the GITHUB_TOKEN environment variable will be used")
 
 	// Reporting
 	// Splunk
@@ -160,30 +177,43 @@ func parseArgs(args []string) (gotestsumFlags []string, goTestFlags []string) {
 	return gotestsumFlags, goTestFlags
 }
 
-func testRunInfo(l zerolog.Logger, repoPath string) (report.TestRunInfo, error) {
-	repoInfo, err := git.GetRepoInfo(l, repoPath)
-	if err != nil {
+func testRunInfo(
+	l zerolog.Logger,
+	githubClient *fg_github.Client,
+	repoPath string,
+) (report.TestRunInfo, error) {
+	repoInfo, err := fg_git.ReadBasicRepoInfo(l, repoPath)
+	if errors.Is(err, git.ErrRepositoryNotExists) {
+		return report.TestRunInfo{}, nil
+	} else if err != nil {
 		return report.TestRunInfo{}, fmt.Errorf("failed to get repo info: %w", err)
 	}
 
 	t := report.TestRunInfo{
-		RepoURL:         repoInfo.URL,
-		RepoOwner:       repoInfo.Owner,
-		RepoName:        repoInfo.Name,
-		DefaultBranch:   repoInfo.DefaultBranch,
-		OnDefaultBranch: repoInfo.CurrentBranch == repoInfo.DefaultBranch,
-		HeadBranch:      repoInfo.CurrentBranch,
-		HeadCommit:      repoInfo.CurrentCommit,
+		RepoURL:    repoInfo.URL,
+		RepoOwner:  repoInfo.Owner,
+		RepoName:   repoInfo.Name,
+		HeadBranch: repoInfo.HeadBranch,
+		HeadCommit: repoInfo.HeadCommit,
 	}
 
-	githubEnv, err := github.ActionsEnvVars()
-	if err != nil && !errors.Is(err, github.ErrNotInActions) {
+	// Get GitHub Actions data if available
+	githubEnv, err := fg_github.ActionsEnvVars()
+	if err != nil && !errors.Is(err, fg_github.ErrNotInActions) {
 		return t, fmt.Errorf("failed to get GitHub Actions environment variables: %w", err)
 	} else {
 		t.GitHubEvent = githubEnv.EventName
-		t.HeadBranch = githubEnv.HeadRef
+
 		t.BaseBranch = githubEnv.BaseRef
 	}
+
+	// Get GitHub Repo data if available
+	err = fg_github.RepoInfo(l, githubClient, repoInfo.Owner, repoInfo.Name)
+	if err != nil {
+		return t, fmt.Errorf("failed to get GitHub repo info: %w", err)
+	}
+	t.GitHubEvent = githubEnv.EventName
+	t.BaseBranch = githubEnv.BaseRef
 
 	return t, nil
 }

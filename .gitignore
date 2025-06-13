@@ -6,6 +6,7 @@
 flakeguard.log
 flakeguard.log.*
 flakeguard
+!flakeguard/
 flakeguard-output/
 
 # Common debug file
