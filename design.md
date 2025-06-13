@@ -77,7 +77,7 @@ Instead of doing a large PR that will likely be the daily chore of a single team
 #### Cons
 
 * Can run into merge conflicts galore, will probably need some system to deal with these.
-* Some tests (like complex subtests) can not be easily quarantined and my need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
+* Some tests (like complex subtests) can not be easily quarantined and may need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
 
 ## Flakeguard's Usage of [gotestsum](https://github.com/gotestyourself/gotestsum)
 

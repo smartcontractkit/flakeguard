@@ -18,18 +18,19 @@ import (
 
 const (
 	TokenEnvVar = "GITHUB_TOKEN"
-	// MockGitHubToken is invalid and only used for testing.
-	MockGitHubToken = "mock-github-token"
+	// MockToken is invalid and only used for testing.
+	MockToken = "mock-github-token"
 )
 
 // Client is a wrapper around the GitHub REST and GraphQL API clients
 type Client struct {
 	Rest    *github.Client
 	GraphQL *gh_graphql.Client
+	token   string
 }
 
 // NewClient creates a new GitHub REST and GraphQL API client with the provided token and logger.
-// If optionalNext is provided, it will be used as the base client for both REST and GraphQL.
+// If optionalNext is provided, it will be used as the base client for both REST and GraphQL, handy for testing.
 func NewClient(
 	l zerolog.Logger,
 	githubToken string,
@@ -83,6 +84,7 @@ func NewClient(
 	client.Rest = github.NewClient(baseClient)
 	if githubToken != "" {
 		client.Rest = client.Rest.WithAuthToken(githubToken)
+		client.token = githubToken
 	}
 
 	src := oauth2.StaticTokenSource(
@@ -183,9 +185,9 @@ func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		Str("response_url", resp.Request.URL.String()).
 		Logger()
 
-	mockRequest := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ") == MockGitHubToken
+	mockRequest := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ") == MockToken
 
-	if !mockRequest && callsRemaining <= 50 && callsRemaining%10 == 0 {
+	if !mockRequest && callsRemaining <= 10 && callsRemaining%2 == 0 {
 		l.Warn().Msg("GitHub API request nearing rate limit")
 	}
 
