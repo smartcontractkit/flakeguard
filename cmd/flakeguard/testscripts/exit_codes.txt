@@ -1,0 +1,2 @@
+! exec flakeguard detect -- -- ./example_tests -tags examples
+stdout: 'hi!'

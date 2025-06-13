@@ -1,51 +1,58 @@
-// Package git provides information and ways to interact with git repositories.
 package git
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/rs/zerolog"
 )
 
-type RepoInfo struct {
-	Owner         string
-	Name          string
-	URL           string
-	CurrentBranch string
-	CurrentCommit string
-	DefaultBranch string
+// BasicRepoInfo contains basic information about a repository, all retrievable without signing git operations.
+type BasicRepoInfo struct {
+	URL        string `json:"repo_url"`
+	Owner      string `json:"repo_owner"`
+	Name       string `json:"repo_name"`
+	HeadBranch string `json:"head_branch"`
+	HeadCommit string `json:"head_commit"`
 }
 
-func GetRepoInfo(l zerolog.Logger, path string) (*RepoInfo, error) {
-	repo, err := git.PlainOpen(path)
+// ReadBasicRepoInfo returns basic information about the repository at the given path.
+// This info is used to gather more detailed information from GitHub if possible.
+func ReadBasicRepoInfo(l zerolog.Logger, repoPath string) (BasicRepoInfo, error) {
+	l.Trace().Str("repo_path", repoPath).Msg("Reading basic repository information")
+
+	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
-		return nil, err
+		return BasicRepoInfo{}, err
 	}
 
 	head, err := repo.Head()
 	if err != nil {
-		return nil, err
+		return BasicRepoInfo{}, err
 	}
 
-	info := &RepoInfo{
-		CurrentBranch: head.Name().Short(),
-		CurrentCommit: head.Hash().String(),
-	}
-
-	remotes, err := repo.Remotes()
+	remote, err := repo.Remote("origin")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get remotes: %w", err)
+		return BasicRepoInfo{}, err
 	}
 
-	if len(remotes) == 0 {
-		l.Warn().Str("path", path).Msg("No remotes found for repo")
-		return info, nil
+	splitName := strings.Split(remote.Config().Name, "/")
+	if len(splitName) != 2 {
+		return BasicRepoInfo{}, fmt.Errorf(
+			"expected remote name to be in the format 'owner/repo', got '%s'",
+			remote.Config().Name,
+		)
 	}
-	remote := remotes[0]
 
-	info.URL = remote.Config().URLs[0]
-	info.Name = remote.Config().Name
+	owner := splitName[0]
+	name := splitName[1]
 
-	return info, nil
+	return BasicRepoInfo{
+		URL:        remote.Config().URLs[0],
+		Owner:      owner,
+		Name:       name,
+		HeadBranch: head.Name().Short(),
+		HeadCommit: head.Hash().String(),
+	}, nil
 }

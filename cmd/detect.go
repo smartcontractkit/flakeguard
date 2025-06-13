@@ -52,6 +52,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 		}
 	}
 
+	// Intentionally set -count=1 to avoid caching test results
 	goTestFlags = append(goTestFlags, "-count=1")
 	detectFiles := make([]string, 0, runs)
 	startTime := time.Now()
@@ -76,7 +77,7 @@ runLoop:
 		}
 	}
 
-	testRunInfo, err := testRunInfo(logger, ".")
+	testRunInfo, err := testRunInfo(logger, githubClient, ".")
 	if err != nil {
 		return fmt.Errorf("failed to get test run info: %w", err)
 	}
@@ -94,13 +95,16 @@ runLoop:
 	return nil
 }
 
+// runDetect runs a single detect run.
 func runDetect(
 	run int,
 	originalGotestsumFlags []string,
 	goTestFlags []string,
 ) (detectFile string, err error) {
 	detectFile = fmt.Sprintf(detectFileOutput, run+1)
+	//nolint:gocritic // The slice appends are needed to avoid modifying the original slices
 	gotestsumFlags := append(originalGotestsumFlags, "--jsonfile", filepath.Join(outputDir, detectFile))
+	//nolint:gocritic // The slice appends are needed to avoid modifying the original slices
 	fullArgs := append(gotestsumFlags, "--")
 	fullArgs = append(fullArgs, goTestFlags...)
 	logger.Info().
@@ -119,6 +123,7 @@ func init() {
 		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This is a soft-limit, and will not abort in the middle of a run.")
 }
 
+// handleTestRunError handles the error from a test run, exiting with the appropriate code.
 func handleTestRunError(run int, err error) error {
 	if err == nil {
 		logger.Debug().Msgf("Run %d: All tests passed", run+1)
