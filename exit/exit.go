@@ -37,6 +37,9 @@ func New(code int, err error) *Error {
 
 // GetCode returns the exit code of an error if it is an Error, otherwise it returns CodeFlakeguardError
 func GetCode(err error) int {
+	if err == nil {
+		return CodeSuccess
+	}
 	if exitErr, ok := err.(*Error); ok {
 		return exitErr.Code
 	}
