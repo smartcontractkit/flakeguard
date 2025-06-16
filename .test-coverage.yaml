@@ -1,0 +1,29 @@
+# Configuration for go-test-coverage tool
+# https://github.com/vladopajic/go-test-coverage
+
+threshold:
+  # File coverage threshold (0-100)
+  file: 70
+  # Package coverage threshold (0-100)
+  package: 80
+  # Total coverage threshold (0-100)
+  total: 75
+
+override:
+  # Skip coverage check for certain files/packages
+  - threshold: 0
+    path: ^example_tests/.*$  # Skip example test packages
+  - threshold: 0
+    path: ^.*_test\.go$       # Skip test files themselves
+  - threshold: 0
+    path: ^cmd/flakeguard/testscripts/.*$ # Skip testscript files
+
+exclude:
+  # Exclude certain paths from coverage requirements
+  paths:
+    - ^example_tests/.*$
+    - ^cmd/flakeguard/testscripts/.*$
+
+# Badge generation (optional)
+badge:
+  filename: coverage.svg

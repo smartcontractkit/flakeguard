@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/flakeguard
 
-go 1.24.3
+go 1.24.4
 
 tool (
 	github.com/vladopajic/go-test-coverage/v2
@@ -18,6 +18,7 @@ require (
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/mod v0.25.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.15.0
 	golang.org/x/tools v0.34.0
@@ -64,7 +65,6 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/image v0.18.0 // indirect
-	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect

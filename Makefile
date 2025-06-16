@@ -1,7 +1,8 @@
-.PHONY: build lint test test_verbose test_unit test_unit_verbose test_race
+.PHONY: build lint test test_verbose test_unit test_unit_verbose test_race test_integration
 
 build:
-	go build -o flakeguard ./cmd/flakeguard/main.go
+	goreleaser check
+	goreleaser build --snapshot --single-target --clean
 
 lint:
 	golangci-lint run --fix

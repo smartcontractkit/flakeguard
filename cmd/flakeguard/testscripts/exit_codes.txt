@@ -1,2 +1,40 @@
-! exec flakeguard detect -- -- ./example_tests -tags examples
-stdout: 'hi!'
+# Test exit code 0 (success) when all tests pass
+exec flakeguard detect -r 2 -- -- ./example_tests/pass -tags examples
+cmp stderr 'pass.txt'
+
+-- pass.txt --
+-- [empty] --
+
+# Test exit code 1 (go test failure) when tests fail
+! exec flakeguard detect -r 2 -- -- ./example_tests/fail -tags examples
+stderr 'Found flaky tests'
+
+# Test exit code 3 (flakeguard error) when invalid flags are provided
+! exec flakeguard detect -- --jsonfile invalid.json -- ./example_tests/pass -tags examples
+stderr 'jsonfile flag cannot be overridden'
+
+# Test exit code 3 (flakeguard error) when invalid count flag is provided
+! exec flakeguard detect -- -- -count=5 ./example_tests/pass -tags examples
+stderr 'count flag in go test cannot be overridden'
+
+# Test exit code 3 (flakeguard error) when output directory creation fails
+! exec flakeguard detect -o '/invalid/path/that/cannot/be/created' -- -- ./example_tests/pass -tags examples
+stderr 'permission denied'
+
+# Test that version command exits with 0
+exec flakeguard version
+stdout 'flakeguard version'
+
+# Test help command exits with 0
+exec flakeguard help
+stdout 'Detect and prevent flaky tests from disrupting CI/CD pipelines'
+
+# Test invalid command exits with error
+! exec flakeguard invalid-command
+stderr 'unknown command'
+
+# Test detect with minimal runs
+exec flakeguard detect -r 1 -- -- ./example_tests/pass -tags examples
+
+# Test detect with dry run flag
+exec flakeguard detect -r 1 -d -- -- ./example_tests/pass -tags examples

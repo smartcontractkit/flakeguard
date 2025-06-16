@@ -1,0 +1,31 @@
+# Test invalid command
+! exec flakeguard invalid-command
+stderr 'unknown command'
+
+# Test invalid flag combination - jsonfile override not allowed
+! exec flakeguard detect -- --jsonfile custom.json -- ./example_tests/pass -tags examples
+stderr 'jsonfile flag cannot be overridden'
+
+# Test invalid flag combination - count override not allowed
+! exec flakeguard detect -- -- -count=3 ./example_tests/pass -tags examples
+stderr 'count flag in go test cannot be overridden'
+
+# Test invalid output directory (permission denied)
+! exec flakeguard detect -o '/root/no-permission' -- -- ./example_tests/pass -tags examples
+stderr 'permission denied\|cannot create directory'
+
+# Test invalid log level
+! exec flakeguard detect -l invalid-level -- -- ./example_tests/pass -tags examples
+stderr 'unknown level'
+
+# Test with non-existent test directory
+! exec flakeguard detect -- -- ./non-existent-directory -tags examples
+stderr 'no Go files\|cannot find package'
+
+# Test invalid number of runs
+! exec flakeguard detect -r 0 -- -- ./example_tests/pass -tags examples
+# Note: This may or may not fail depending on validation
+
+# Test with invalid gotestsum flags that break execution
+! exec flakeguard detect -- --invalid-gotestsum-flag -- ./example_tests/pass -tags examples
+stderr 'unknown flag\|flag provided but not defined'

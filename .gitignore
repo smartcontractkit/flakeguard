@@ -8,6 +8,19 @@ flakeguard.log.*
 flakeguard
 !flakeguard/
 flakeguard-output/
+flakeguard.test
 
 # Common debug file
 x.json
+
+# Coverage artifacts
+coverage/
+*.out
+*.html
+coverage.svg
+
+
+# goreleaser
+dist/
+.goreleaser.lock
+.goreleaser.yml
