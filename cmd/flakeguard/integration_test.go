@@ -11,15 +11,17 @@ import (
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
+	"github.com/rs/zerolog"
 	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/flakeguard/internal/testhelpers"
 )
 
 const (
-	distDir                  = "dist"
-	flakeguardCoveredBinary  = "flakeguard_covered"
-	flakeguardRootModulePath = "github.com/smartcontractkit/flakeguard"
+	distDir                    = "dist"
+	flakeguardCoveredBinary    = "flakeguard_covered"
+	flakeguardRootModulePath   = "github.com/smartcontractkit/flakeguard"
+	integrationTestCoverageDir = "integration"
 )
 
 var flakeguardBinaryPath string
@@ -65,10 +67,31 @@ func TestIntegrationScripts(t *testing.T) {
 			}
 
 			if flakeguardBinaryPath != "" {
-				l.Debug().Str("path", flakeguardBinaryPath).Msg("Found flakeguard binary for integration tests")
-				if err := os.Symlink(flakeguardBinaryPath, filepath.Join(env.WorkDir, "flakeguard")); err != nil {
+				// Create symlink to the binary in the working directory
+				flakeguardLink := filepath.Join(env.WorkDir, "flakeguard")
+				if err := os.Symlink(flakeguardBinaryPath, flakeguardLink); err != nil {
 					return err
 				}
+
+				// Make sure the binary is executable
+				if err := os.Chmod(flakeguardLink, 0600); err != nil {
+					return err
+				}
+
+				// Add the working directory to PATH so testscripts can find 'flakeguard' directly
+				currentPath := env.Getenv("PATH")
+				newPath := env.WorkDir + string(os.PathListSeparator) + currentPath
+				env.Setenv("PATH", newPath)
+
+				// Set up coverage collection for the binary
+				if err := setupCoverageCollection(env, l); err != nil {
+					l.Warn().Err(err).Msg("Failed to setup coverage collection, continuing without coverage")
+				}
+				l.Debug().
+					Str("GOCOVERDIR", env.Getenv("GOCOVERDIR")).
+					Str("flakeguardBinaryPath", flakeguardBinaryPath).
+					Str("flakeguardLink", flakeguardLink).
+					Msg("Running integration tests with flakeguard binary")
 			} else {
 				l.Debug().Msg("No flakeguard binary found, using in-process compilation for integration tests")
 			}
@@ -162,4 +185,37 @@ func findProjectRoot(startDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("could not find go.mod file starting from %s", startDir)
+}
+
+// setupCoverageCollection sets up coverage data collection for the coverage-instrumented binary
+func setupCoverageCollection(env *testscript.Env, l zerolog.Logger) error {
+	var coverageDir string
+
+	defer func() {
+		fmt.Println("DEBUG: coverageDir", env.Getenv("GOCOVERDIR"))
+		l.Trace().Str("coverageDir", env.Getenv("GOCOVERDIR")).Msg("Using coverage directory")
+	}()
+
+	// If there's a global GOCOVERDIR set and use that if available
+	coverageDir = os.Getenv("GOCOVERDIR")
+	if coverageDir != "" {
+		coverageDir = filepath.Join(coverageDir, integrationTestCoverageDir)
+		if err := os.MkdirAll(coverageDir, 0750); err != nil {
+			return fmt.Errorf("failed to create coverage directory: %w", err)
+		}
+
+		// If there's a global coverage directory, we'll write there instead
+		env.Setenv("GOCOVERDIR", coverageDir)
+		return nil
+	}
+
+	// Create a coverage directory for this test run
+	coverageDir = filepath.Join(env.WorkDir, "coverage", integrationTestCoverageDir)
+	if err := os.MkdirAll(coverageDir, 0750); err != nil {
+		return fmt.Errorf("failed to create coverage directory: %w", err)
+	}
+
+	// Set GOCOVERDIR so the binary writes coverage data there
+	env.Setenv("GOCOVERDIR", coverageDir)
+	return nil
 }
