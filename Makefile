@@ -21,40 +21,49 @@ test_unit:
 
 test_integration: clean_coverage build
 	@mkdir -p $(GOCOVERDIR)
-	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -cover ./... -run TestIntegration
+	-FLAKEGUARD_GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -cover ./... -run TestIntegration
 	@$(MAKE) test_coverage_report
 
 test_full: clean_coverage build
 	@mkdir -p $(GOCOVERDIR)
-	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -cover -coverprofile=./coverage/unit.out -covermode=atomic ./...
+	@mkdir -p $(GOCOVERDIR)/unit
+	-FLAKEGUARD_GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -coverprofile=./coverage/unit.out ./... -args -test.gocoverdir=$(GOCOVERDIR)/unit
 	@$(MAKE) test_coverage_report
 
 test_full_race: clean_coverage build
 	@mkdir -p $(GOCOVERDIR)
-	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -cover -coverprofile=./coverage/unit.out -covermode=atomic -race ./...
+	@mkdir -p $(GOCOVERDIR)/unit
+	-FLAKEGUARD_GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -coverprofile=./coverage/unit.out -race ./... -args -test.gocoverdir=$(GOCOVERDIR)/unit
 	@$(MAKE) test_coverage_report
 
 # Generate coverage reports from collected data
 test_coverage_report:
 	@echo "Code coverage"
 	@echo "--------------------------------"
-	@if [ -f "coverage/unit.out" ]; then \
+	@if [ -d "coverage/unit" ]; then \
+		go tool covdata textfmt -i=coverage/unit -o=coverage/unit.out; \
 		go tool cover -html=coverage/unit.out -o=coverage/unit.html; \
-		echo "Unit tests:"; \
-		go tool cover -func=coverage/unit.out | tail -1; \
+		echo "Unit"; \
+		echo "--------------------------------"; \
+		go tool covdata percent -i=coverage/unit; \
 	fi
 	@if [ -d "coverage/integration" ]; then \
 		go tool covdata textfmt -i=coverage/integration -o=coverage/integration.out; \
 		go tool cover -html=coverage/integration.out -o=coverage/integration.html; \
-		echo "Integration tests:"; \
+		echo "--------------------------------"; \
+		echo "Integration"; \
+		echo "--------------------------------"; \
 		go tool covdata percent -i=coverage/integration; \
 	fi
-	@if [ -f "coverage/unit.out" ] && [ -f "coverage/integration.out" ]; then \
-		go tool covdata textfmt -i=coverage/integration -o=coverage/integration.out; \
-		go run github.com/wadey/gocovmerge coverage/unit.out coverage/integration.out > coverage/combined.out; \
+	@if [ -d "coverage/unit" ] && [ -d "coverage/integration" ]; then \
+		mkdir -p coverage/combined; \
+		go tool covdata merge -i=coverage/unit,coverage/integration -o coverage/combined; \
+		go tool covdata textfmt -i=coverage/combined -o=coverage/combined.out; \
 		go tool cover -html=coverage/combined.out -o=coverage/combined.html; \
-		echo "Combined coverage:"; \
-		go tool cover -func=coverage/combined.out | tail -1; \
+		echo "--------------------------------"; \
+		echo "Combined"; \
+		echo "--------------------------------"; \
+		go tool covdata percent -i=coverage/combined; \
 	fi
 
 # Clean coverage data

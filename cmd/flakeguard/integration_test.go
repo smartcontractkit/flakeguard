@@ -23,6 +23,7 @@ const (
 	flakeguardCoveredBinary    = "flakeguard_covered"
 	flakeguardRootModulePath   = "github.com/smartcontractkit/flakeguard"
 	integrationTestCoverageDir = "integration"
+	CoverDirEnvVar             = "FLAKEGUARD_GOCOVERDIR"
 )
 
 var (
@@ -219,26 +220,22 @@ func setupCoverageCollection(env *testscript.Env, l zerolog.Logger) error {
 		l.Trace().Str("coverageDir", env.Getenv("GOCOVERDIR")).Msg("Using coverage directory")
 	}()
 
-	// If there's a global GOCOVERDIR set and use that if available
-	coverageDir = os.Getenv("GOCOVERDIR")
-	if coverageDir != "" {
-		coverageDir = filepath.Join(coverageDir, integrationTestCoverageDir)
-		if err := os.MkdirAll(coverageDir, 0750); err != nil {
-			return fmt.Errorf("failed to create coverage directory: %w", err)
-		}
+	// Check for a user-specified coverage directory first. This should be a global dir that is shared by all test runs.
+	userCoverageDir := os.Getenv(CoverDirEnvVar)
 
-		// If there's a global coverage directory, we'll write there instead
-		env.Setenv("GOCOVERDIR", coverageDir)
+	if userCoverageDir == "" {
+		l.Warn().
+			Str("envVar", CoverDirEnvVar).
+			Msg("No coverage directory specified, integration tests will not collect coverage data. Set the environment variable to enable coverage collection.")
 		return nil
 	}
 
-	// Create a coverage directory for this test run
-	coverageDir = filepath.Join(env.WorkDir, "coverage", integrationTestCoverageDir)
+	coverageDir = filepath.Join(userCoverageDir, integrationTestCoverageDir)
 	if err := os.MkdirAll(coverageDir, 0750); err != nil {
 		return fmt.Errorf("failed to create coverage directory: %w", err)
 	}
 
-	// Set GOCOVERDIR so the binary writes coverage data there
+	// Override Go's temporary GOCOVERDIR with our desired directory
 	env.Setenv("GOCOVERDIR", coverageDir)
 	return nil
 }

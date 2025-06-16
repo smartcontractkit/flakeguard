@@ -42,4 +42,15 @@ We use [golangci-lint v2](https://golangci-lint.run/) for linting and formatting
 pre-commit install
 ```
 
-A handy debugging setup is available already in the included [.vscode](.vscode/) folder.
+### Test
+
+```sh
+make test_unit # Run only unit tests
+make test_integration # Run only integration tests
+make test_full # Run all tests with extensive coverage stats
+```
+
+* `FLAKEGUARD_TEST_LOG_LEVEL` Sets the logging level for tests to use, use `FLAKEGUARD_TEST_LOG_LEVEL=trace` if you're chasing down confusing bugs.
+* `FLAKEGUARD_GOCOVERDIR` Sets the coverage dir for integration tests to utilize. This is handled automatically in most `make` commands.
+
+A handy debugging setup is available already in the included [.vscode](.vscode/) folder as "Debug Flakeguard".
