@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/rs/zerolog"
@@ -24,18 +25,21 @@ const (
 	integrationTestCoverageDir = "integration"
 )
 
-var flakeguardBinaryPath string
+var (
+	flakeguardBinaryPath string
+	flakeguardBuiltTime  time.Time
+)
 
 func TestMain(m *testing.M) {
 	var err error
-	flakeguardBinaryPath, err = findBinary()
+	flakeguardBinaryPath, flakeguardBuiltTime, err = findBinary()
 	if err != nil {
 		log.Fatalf("Hit error while looking for flakeguard binary for integration tests: %v", err)
 	}
 
 	// Check if a coverage-instrumented binary exists
 	if flakeguardBinaryPath != "" {
-		fmt.Printf("Using flakeguard binary '%s' for integration tests\n", flakeguardBinaryPath)
+		// Check when binary was built
 		// Coverage binary exists, don't include "flakeguard" in the map so testscript will look for external binary
 		testscript.Main(m, map[string]func(){})
 	} else {
@@ -74,7 +78,8 @@ func TestIntegrationScripts(t *testing.T) {
 				}
 
 				// Make sure the binary is executable
-				if err := os.Chmod(flakeguardLink, 0600); err != nil {
+				//nolint:gosec // G302: we want to allow execution of the binary
+				if err := os.Chmod(flakeguardLink, 0755); err != nil {
 					return err
 				}
 
@@ -87,13 +92,21 @@ func TestIntegrationScripts(t *testing.T) {
 				if err := setupCoverageCollection(env, l); err != nil {
 					l.Warn().Err(err).Msg("Failed to setup coverage collection, continuing without coverage")
 				}
-				l.Debug().
+				l.Info().
 					Str("GOCOVERDIR", env.Getenv("GOCOVERDIR")).
 					Str("flakeguardBinaryPath", flakeguardBinaryPath).
 					Str("flakeguardLink", flakeguardLink).
+					Time("flakeguardBuiltTime", flakeguardBuiltTime).
+					Str("flakeguardBinaryAge", time.Since(flakeguardBuiltTime).String()).
 					Msg("Running integration tests with flakeguard binary")
+				if time.Since(flakeguardBuiltTime) > time.Minute {
+					l.Warn().
+						Time("flakeguardBuiltTime", flakeguardBuiltTime).
+						Str("flakeguardBinaryAge", time.Since(flakeguardBuiltTime).String()).
+						Msg("flakeguard binary is older than 1 minute, consider rebuilding")
+				}
 			} else {
-				l.Debug().Msg("No flakeguard binary found, using in-process compilation for integration tests")
+				l.Info().Msg("No flakeguard binary found, using in-process compilation for integration tests")
 			}
 
 			return nil
@@ -103,28 +116,28 @@ func TestIntegrationScripts(t *testing.T) {
 
 // findBinary looks for a flakeguard binary in the current directory and in dist/, then returns the path to the binary
 // if the binary is not found, it returns an empty string
-func findBinary() (string, error) {
+func findBinary() (path string, builtTime time.Time, err error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 
 	// First check for a binary in the current directory
 	flakeguardBinaryPath := filepath.Join(currentDir, flakeguardCoveredBinary)
 	if _, err := os.Stat(flakeguardBinaryPath); err == nil {
-		return flakeguardBinaryPath, nil
+		return flakeguardBinaryPath, time.Time{}, nil
 	}
 
 	// Find the project root (where go.mod should be)
 	projectRoot, err := findProjectRoot(currentDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to find project root: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to find project root: %w", err)
 	}
 
 	// Look in the dist directory at project root
 	distPath := filepath.Join(projectRoot, "dist")
 	if _, err := os.Stat(distPath); os.IsNotExist(err) {
-		return "", nil // No dist directory, return empty path
+		return "", time.Time{}, nil // No dist directory, return empty path
 	}
 
 	var foundBinaryPath string
@@ -146,8 +159,19 @@ func findBinary() (string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to walk dist directory: %w", err)
+	}
 
-	return foundBinaryPath, err
+	if foundBinaryPath == "" {
+		return "", time.Time{}, nil
+	}
+	flakeguardBinaryInfo, err := os.Stat(foundBinaryPath)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to stat flakeguard binary: %w", err)
+	}
+
+	return foundBinaryPath, flakeguardBinaryInfo.ModTime(), err
 }
 
 // findProjectRoot walks up the directory tree to find the project root (where go.mod is located)
@@ -187,12 +211,11 @@ func findProjectRoot(startDir string) (string, error) {
 	return "", fmt.Errorf("could not find go.mod file starting from %s", startDir)
 }
 
-// setupCoverageCollection sets up coverage data collection for the coverage-instrumented binary
+// setupCoverageCollection sets up the GOCOVERDIR for testscript to use
 func setupCoverageCollection(env *testscript.Env, l zerolog.Logger) error {
 	var coverageDir string
 
 	defer func() {
-		fmt.Println("DEBUG: coverageDir", env.Getenv("GOCOVERDIR"))
 		l.Trace().Str("coverageDir", env.Getenv("GOCOVERDIR")).Msg("Using coverage directory")
 	}()
 

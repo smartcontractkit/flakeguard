@@ -17,26 +17,21 @@ test_race:
 GOCOVERDIR ?= $(PWD)/coverage
 
 test_unit:
-	@echo "Running unit tests with coverage..."
-	@mkdir -p coverage/unit
-	go tool gotestsum -- -cover -short -coverprofile=coverage/unit.out ./...
+	go tool gotestsum -- -cover -short ./...
 
-test_integration: build_coverage
-	@echo "Running integration tests with coverage..."
-	@echo "GOCOVERDIR will be set to: $(GOCOVERDIR)/integration"
-	@mkdir -p $(GOCOVERDIR)/integration
-	GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- ./cmd/flakeguard -run TestIntegration
-
-test_full: clean_coverage test_unit test_integration
+test_integration: clean_coverage build
+	@mkdir -p $(GOCOVERDIR)
+	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -cover ./... -run TestIntegration
 	@$(MAKE) test_coverage_report
 
-test_full_race: clean_coverage
-	@echo "Running unit tests with coverage and race detection..."
-	@mkdir -p coverage/unit
-	go tool gotestsum -- -cover -short -race -coverprofile=coverage/unit.out ./...
-	@echo "Running integration tests with coverage..."
-	@mkdir -p $(GOCOVERDIR)/integration
-	GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- ./cmd/flakeguard -run TestIntegration
+test_full: clean_coverage build
+	@mkdir -p $(GOCOVERDIR)
+	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -cover -coverprofile=./coverage/unit.out -covermode=atomic ./...
+	@$(MAKE) test_coverage_report
+
+test_full_race: clean_coverage build
+	@mkdir -p $(GOCOVERDIR)
+	-GOCOVERDIR=$(GOCOVERDIR) go tool gotestsum -- -count=1 -cover -coverprofile=./coverage/unit.out -covermode=atomic -race ./...
 	@$(MAKE) test_coverage_report
 
 # Generate coverage reports from collected data
