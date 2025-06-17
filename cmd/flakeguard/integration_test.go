@@ -86,11 +86,10 @@ func TestIntegrationGuard(t *testing.T) {
 // and sets up the flakeguard binary and coverage collection
 func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 	t.Helper()
-	l := testhelpers.Logger(t)
-
-	t.Cleanup(cleanupTestscriptFunc(t))
 
 	return func(env *testscript.Env) error {
+		l := testhelpers.Logger(t)
+		t.Cleanup(cleanupTestscriptFunc(t, env))
 		// Copy example_tests directory to the testscript working directory
 		exampleTestsSource := filepath.Join("..", "..", "example_tests")
 		exampleTestsDest := filepath.Join(env.WorkDir, "example_tests")
@@ -123,6 +122,10 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 		if sourceFlakeguardBinaryPath != "" {
 			// Copy the binary to the working directory
 			destFlakeguardBinaryPath := filepath.Join(env.WorkDir, "flakeguard")
+			l.Debug().
+				Str("source", sourceFlakeguardBinaryPath).
+				Str("dest", destFlakeguardBinaryPath).
+				Msg("Copying flakeguard binary")
 			if err := testhelpers.CopyFile(t, sourceFlakeguardBinaryPath, destFlakeguardBinaryPath); err != nil {
 				return err
 			}
@@ -147,6 +150,7 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 				Str("GOCACHE", env.Getenv("GOCACHE")).
 				Str("GOMODCACHE", env.Getenv("GOMODCACHE")).
 				Str("HOME", env.Getenv("HOME")).
+				Str("WORKDIR", env.WorkDir).
 				Str("sourceFlakeguardBinary", sourceFlakeguardBinaryPath).
 				Str("destFlakeguardBinary", destFlakeguardBinaryPath).
 				Time("flakeguardBuiltTime", sourceFlakeguardBuiltTime).
@@ -169,18 +173,14 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 
 // cleanupTestscriptFunc is a function that is called when a test fails.
 // It prints out some of the non-obvious file structures of testscript to help debug failures.
-func cleanupTestscriptFunc(t *testing.T) func() {
+func cleanupTestscriptFunc(t *testing.T, env *testscript.Env) func() {
 	t.Helper()
 
 	return func() {
 		if t.Failed() {
 			t.Log("Test failed, printing $WORK dir")
-			workDir, err := os.Getwd()
-			if err != nil {
-				t.Logf("Error getting work dir: %v", err)
-			}
-			t.Logf("Work dir: %s", workDir)
-			entries, err := os.ReadDir(workDir)
+			t.Logf("Work dir: %s", env.WorkDir)
+			entries, err := os.ReadDir(env.WorkDir)
 			if err != nil {
 				t.Logf("Error reading work dir: %v", err)
 			}
