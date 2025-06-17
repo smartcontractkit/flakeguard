@@ -28,20 +28,20 @@ const (
 )
 
 var (
-	flakeguardBinaryPath string
-	flakeguardBuiltTime  time.Time
+	sourceFlakeguardBinaryPath string
+	sourceFlakeguardBuiltTime  time.Time
 )
 
 func TestMain(m *testing.M) {
 	var err error
-	flakeguardBinaryPath, flakeguardBuiltTime, err = findBinary()
+	sourceFlakeguardBinaryPath, sourceFlakeguardBuiltTime, err = findBinary()
 	if err != nil {
 		log.Printf("Hit error while looking for flakeguard binary for integration tests: %v", err)
 		os.Exit(1)
 	}
 
 	// Check if a coverage-instrumented binary exists
-	if flakeguardBinaryPath != "" {
+	if sourceFlakeguardBinaryPath != "" {
 		// Check when binary was built
 		// Coverage binary exists, don't include "flakeguard" in the map so testscript will look for external binary
 		testscript.Main(m, map[string]func(){})
@@ -118,16 +118,16 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 		env.Setenv("GOMODCACHE", goModCacheDir)
 		env.Setenv("HOME", env.WorkDir) // Override the testscript default of /no-home
 
-		if flakeguardBinaryPath != "" {
-			// Create symlink to the binary in the working directory
-			flakeguardLink := filepath.Join(env.WorkDir, "flakeguard")
-			if err := os.Symlink(flakeguardBinaryPath, flakeguardLink); err != nil {
+		if sourceFlakeguardBinaryPath != "" {
+			// Copy the binary to the working directory
+			destFlakeguardBinaryPath := filepath.Join(env.WorkDir, "flakeguard")
+			if err := testhelpers.CopyFile(t, sourceFlakeguardBinaryPath, destFlakeguardBinaryPath); err != nil {
 				return err
 			}
 
 			// Make sure the binary is executable
 			//nolint:gosec // G302: we want to allow execution of the binary
-			if err := os.Chmod(flakeguardLink, 0755); err != nil {
+			if err := os.Chmod(destFlakeguardBinaryPath, 0755); err != nil {
 				return err
 			}
 
@@ -145,16 +145,16 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 				Str("GOCACHE", env.Getenv("GOCACHE")).
 				Str("GOMODCACHE", env.Getenv("GOMODCACHE")).
 				Str("HOME", env.Getenv("HOME")).
-				Str("flakeguardBinaryPath", flakeguardBinaryPath).
-				Str("flakeguardLink", flakeguardLink).
-				Time("flakeguardBuiltTime", flakeguardBuiltTime).
-				Str("flakeguardBinaryAge", time.Since(flakeguardBuiltTime).String()).
+				Str("sourceFlakeguardBinary", sourceFlakeguardBinaryPath).
+				Str("destFlakeguardBinary", destFlakeguardBinaryPath).
+				Time("flakeguardBuiltTime", sourceFlakeguardBuiltTime).
+				Str("flakeguardBinaryAge", time.Since(sourceFlakeguardBuiltTime).String()).
 				Msg("Running integration tests with flakeguard binary")
-			if time.Since(flakeguardBuiltTime) > time.Minute {
+			if time.Since(sourceFlakeguardBuiltTime) > time.Minute {
 				l.Warn().
 					Str("hintIfInCI", "If you're running these tests in CI, it's common and likely harmless. The timestamp given to the binary is often weird in CI.").
-					Time("flakeguardBuiltTime", flakeguardBuiltTime).
-					Str("flakeguardBinaryAge", time.Since(flakeguardBuiltTime).String()).
+					Time("flakeguardBuiltTime", sourceFlakeguardBuiltTime).
+					Str("flakeguardBinaryAge", time.Since(sourceFlakeguardBuiltTime).String()).
 					Msg("flakeguard binary is older than 1 minute, consider rebuilding")
 			}
 		} else {
