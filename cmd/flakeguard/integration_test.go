@@ -128,14 +128,8 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 				Msg("Copying flakeguard binary")
 			if err := testhelpers.CopyFile(t, sourceFlakeguardBinaryPath, destFlakeguardBinaryPath); err != nil {
 				fmt.Println("Error copying flakeguard binary, printing $WORKDIR contents for debugging")
-				entries, err := os.ReadDir(env.WorkDir)
-				if err != nil {
-					fmt.Println("Error reading work dir: ", err)
-					return err
-				}
-				fmt.Println("Work dir contents:")
-				for _, entry := range entries {
-					fmt.Println(entry.Name())
+				if err := testhelpers.ShowDirContents(t, env.WorkDir); err != nil {
+					fmt.Println("Error showing directory contents: ", err)
 				}
 				return fmt.Errorf("failed to copy flakeguard binary: %w", err)
 			}

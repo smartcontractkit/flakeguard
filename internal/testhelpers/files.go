@@ -2,8 +2,10 @@ package testhelpers
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,4 +107,41 @@ func CopyFile(tb testing.TB, src, dst string) error {
 	}
 
 	return nil
+}
+
+// ShowDirContents prints the full directory structure starting from the given path.
+// Handy for debugging test failures in temp directories, like in testscript integration tests.
+func ShowDirContents(tb testing.TB, rootPath string) error {
+	tb.Helper()
+
+	tb.Logf("Directory structure for: %s", rootPath)
+
+	return filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("error walking %s: %w", path, err)
+		}
+
+		// Calculate relative path from root for cleaner display
+		relPath, err := filepath.Rel(rootPath, path)
+		if err != nil {
+			relPath = path // fallback to absolute path
+		}
+
+		// Create indentation based on directory depth
+		depth := len(
+			filepath.SplitList(strings.ReplaceAll(relPath, string(filepath.Separator), string(filepath.ListSeparator))),
+		)
+		if relPath == "." {
+			depth = 0
+		}
+		indent := strings.Repeat("  ", depth)
+
+		if d.IsDir() {
+			tb.Logf("%s[DIR]  %s/", indent, d.Name())
+		} else {
+			tb.Logf("%s[FILE] %s", indent, d.Name())
+		}
+
+		return nil
+	})
 }
