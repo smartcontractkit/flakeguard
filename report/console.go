@@ -2,19 +2,15 @@ package report
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/rs/zerolog"
+	"strings"
 )
 
-func writeToConsole(l zerolog.Logger, summary *reportSummary, results []*TestResult) error {
-	l.Trace().Msg("Writing report to console")
-	start := time.Now()
-
-	fmt.Println("Flakeguard report")
-	fmt.Println("--------------------------------")
-	fmt.Println(summary.String())
-	fmt.Println("--------------------------------")
+func writeToConsole(summary *reportSummary, results []*TestResult) error {
+	summaryStr := summary.String()
+	fmt.Println("\nFlakeguard report")
+	fmt.Println(strings.Repeat("-", len(summaryStr)))
+	fmt.Println(summaryStr)
+	fmt.Println(strings.Repeat("-", len(summaryStr)))
 
 	for _, result := range results {
 		if result.Failures > 0 || result.Panic {
@@ -22,6 +18,5 @@ func writeToConsole(l zerolog.Logger, summary *reportSummary, results []*TestRes
 		}
 	}
 
-	l.Trace().Dur("duration", time.Since(start)).Msg("Report written to console")
 	return nil
 }

@@ -229,7 +229,7 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 	eg := errgroup.Group{}
 	if opts.toConsole {
 		eg.Go(func() error {
-			return writeToConsole(l, summary, results)
+			return writeToConsole(summary, results)
 		})
 	}
 
