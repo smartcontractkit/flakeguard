@@ -11,6 +11,7 @@ repos:
     rev: v2.4.1
     hooks:
     - id: codespell
+      exclude: go\.sum$
   - repo: https://github.com/golangci/golangci-lint
     rev: v2.0.2
     hooks:

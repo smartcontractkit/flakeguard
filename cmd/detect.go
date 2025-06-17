@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 	gotestsumCmd "gotest.tools/gotestsum/cmd"
-
-	"slices"
 
 	"github.com/smartcontractkit/flakeguard/exit"
 	"github.com/smartcontractkit/flakeguard/report"
@@ -56,24 +55,20 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 	goTestFlags = append(goTestFlags, "-count=1")
 	detectFiles := make([]string, 0, runs)
 	startTime := time.Now()
-	timer := time.NewTimer(durationTarget)
-	defer timer.Stop()
-
-runLoop:
 	for run := range runs {
-		select {
-		case <-timer.C:
-			logger.Warn().
-				Str("durationTarget", durationTarget.String()).
-				Str("elapsedTime", time.Since(startTime).String()).
-				Msg("Duration target hit, stopping detection")
-			break runLoop
-		default:
-			detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
-			if err := handleTestRunError(run, err); err != nil {
-				return err
+		detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
+		if err := handleTestRunError(run, err); err != nil {
+			return err
+		}
+		detectFiles = append(detectFiles, detectFile)
+		if durationTarget > 0 {
+			if time.Since(startTime) > durationTarget {
+				logger.Warn().
+					Str("durationTarget", durationTarget.String()).
+					Str("elapsedTime", time.Since(startTime).String()).
+					Msg("Duration target hit, stopping detection")
+				break
 			}
-			detectFiles = append(detectFiles, detectFile)
 		}
 	}
 

@@ -37,8 +37,8 @@ jobs:
           go-version: stable
       - name: Install Dependencies
         run: go mod download
-      - name: Run tests
-        run: FLAKEGUARD_TEST_LOG_LEVEL=trace go tool gotestsum --junitfile junit.xml -- -cover -coverprofile=cover.out ./...
+      - name: Run unit tests
+        run: FLAKEGUARD_TEST_LOG_LEVEL=trace go tool gotestsum --junitfile junit.xml -- -cover -coverprofile=unit.out ./...
 
   test-race:
     runs-on: ubuntu-latest
@@ -52,4 +52,4 @@ jobs:
       - name: Install Dependencies
         run: go mod download
       - name: Run tests with race detector
-        run: FLAKEGUARD_TEST_LOG_LEVEL=trace go tool gotestsum --junitfile junit.xml -- -cover -race -coverprofile=cover.out ./...
+        run: FLAKEGUARD_TEST_LOG_LEVEL=trace go tool gotestsum --junitfile junit.xml -- -cover -race -coverprofile=race.out ./...

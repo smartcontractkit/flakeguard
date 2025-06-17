@@ -6,12 +6,30 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - id: covered
+    main: ./cmd/flakeguard/main.go
+    flags: -cover
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
-      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X github.com/smartcontractkit/flakeguard/cmd.version={{.Version}}
+      - -X github.com/smartcontractkit/flakeguard/cmd.commit={{.Commit}}
+      - -X github.com/smartcontractkit/flakeguard/cmd.buildTime={{.Date}}
+      - -X github.com/smartcontractkit/flakeguard/cmd.builtBy=goreleaser
+    binary: flakeguard_covered
+  - id: main
+    main: ./cmd/flakeguard/main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
     goarch:
       - amd64
       - arm64
