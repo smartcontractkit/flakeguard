@@ -28,7 +28,7 @@ builds:
   - id: main
     main: ./cmd/flakeguard/main.go
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
       - linux
       - darwin
