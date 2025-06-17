@@ -81,7 +81,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 		logger,
 		testRunInfo,
 		detectFiles,
-		report.ReportDir(outputDir),
+		report.WithDir(outputDir),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create flakeguard report: %w", err)

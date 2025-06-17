@@ -277,7 +277,7 @@ func TestRateLimitHeaders(t *testing.T) {
 
 			l := testhelpers.Logger(t)
 
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				maps.Copy(w.Header(), tt.header)
 				w.WriteHeader(tt.statusCode)
 			}))

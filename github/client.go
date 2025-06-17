@@ -18,10 +18,14 @@ import (
 )
 
 const (
-	TokenEnvVar               = "GITHUB_TOKEN"
+	// TokenEnvVar is the environment variable that contains the GitHub token.
+	TokenEnvVar = "GITHUB_TOKEN"
+	// RateLimitWarningThreshold is the number of remaining requests before a warning is logged.
 	RateLimitWarningThreshold = 5
-	RateLimitWarningMsg       = "GitHub API requests nearing rate limit"
-	RateLimitHitMsg           = "GitHub API rate limit hit, sleeping until limit reset"
+	// RateLimitWarningMsg is the message logged when the number of remaining requests is below the warning threshold.
+	RateLimitWarningMsg = "GitHub API requests nearing rate limit"
+	// RateLimitHitMsg is the message logged when the number of remaining requests is 0.
+	RateLimitHitMsg = "GitHub API rate limit hit, sleeping until limit reset"
 )
 
 // Client is a wrapper around the GitHub REST and GraphQL API clients

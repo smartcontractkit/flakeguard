@@ -58,6 +58,8 @@ func CopyDir(tb testing.TB, src, dst string) error {
 	})
 }
 
+// CopyFile copies a file from src to dst.
+// Handy for copying files needed for testing into a temp directory.
 func CopyFile(tb testing.TB, src, dst string) error {
 	tb.Helper()
 

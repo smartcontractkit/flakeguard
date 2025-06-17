@@ -21,6 +21,6 @@ func init() {
 	rootCmd.AddCommand(guardCmd)
 }
 
-func guardTests(_ *cobra.Command, args []string) error {
+func guardTests(_ *cobra.Command, _ []string) error {
 	return fmt.Errorf("guard not implemented")
 }

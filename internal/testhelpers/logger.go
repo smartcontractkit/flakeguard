@@ -16,8 +16,10 @@ const (
 	testLogLevelEnvVar = "FLAKEGUARD_TEST_LOG_LEVEL"
 )
 
+// Option is a function that sets an option for the test-specific logger.
 type Option func(*options)
 
+// options holds the options for the test-specific logger.
 type options struct {
 	logLevel   string
 	writers    []io.Writer

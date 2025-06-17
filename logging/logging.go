@@ -10,10 +10,12 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// TimeLayout is the default time layout for the logger.
 const TimeLayout = "2006-01-02T15:04:05.000"
 
 var once sync.Once
 
+// options holds the options for the logger.
 type options struct {
 	disableConsoleLog  bool
 	logLevelInput      string
@@ -22,6 +24,7 @@ type options struct {
 	writers            []io.Writer
 }
 
+// Option is a function that sets an option for the logger.
 type Option func(*options)
 
 // WithWriters sets the writers to use for logging.
@@ -46,7 +49,7 @@ func WithLevel(logLevelInput string) Option {
 	}
 }
 
-// WithDisableConsoleLog disables console logging.
+// DisableConsoleLog disables console logging.
 func DisableConsoleLog() Option {
 	return func(o *options) {
 		o.disableConsoleLog = true
