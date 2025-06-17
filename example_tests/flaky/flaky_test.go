@@ -38,7 +38,7 @@ func TestFlakeFiftyPercent(t *testing.T) {
 func TestFlakeSeventyFivePercent(t *testing.T) {
 	t.Parallel()
 
-	if rand.Intn(4) == 0 {
+	if rand.Intn(4) != 0 {
 		t.Log("I flake 75% of the time")
 		t.FailNow()
 	}
