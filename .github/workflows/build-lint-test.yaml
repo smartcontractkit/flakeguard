@@ -65,9 +65,9 @@ jobs:
         run: go mod download
       - name: Create coverage directory
         run: mkdir -p ./coverage/unit
-      - name: DEBUG: Print working directory
+      - name: DEBUG Print working directory
         run: pwd
-      - name: DEBUG: ls
+      - name: DEBUG ls
         run: ls -la
       - name: Run Unit Tests
         run: go tool gotestsum -- -cover -skip TestIntegration ./... -args -test.gocoverdir=./coverage/unit
@@ -120,9 +120,9 @@ jobs:
           go-version: stable
       - name: Install Dependencies
         run: go mod download
-      - name: DEBUG: Print working directory
+      - name: DEBUG Print working directory
         run: pwd
-      - name: DEBUG: ls
+      - name: DEBUG ls
         run: ls -la
       - name: Run Integration Tests
         run: go tool gotestsum -- -run TestIntegration ./...
