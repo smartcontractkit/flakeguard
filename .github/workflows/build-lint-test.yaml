@@ -49,6 +49,7 @@ jobs:
           name: flakeguard_covered
           path: dist/covered_linux_amd64_v1/flakeguard_covered
           retention-days: 1
+          if-no-files-found: error # Need this to run integration tests properly
 
   test-unit:
     runs-on: ubuntu-latest
@@ -63,11 +64,15 @@ jobs:
       - name: Install Dependencies
         run: go mod download
       - name: Create coverage directory
-        run: mkdir -p coverage/unit
+        run: mkdir -p ./coverage/unit
+      - name: DEBUG: Print working directory
+        run: pwd
+      - name: DEBUG: ls
+        run: ls -la
       - name: Run Unit Tests
-        run: go tool gotestsum -- -cover -covermode=atomic -skip TestIntegration ./... -args -test.gocoverdir=coverage/unit
+        run: go tool gotestsum -- -cover -skip TestIntegration ./... -args -test.gocoverdir=./coverage/unit
       - name: Format coverage report
-        run: go tool covdata textfmt -i=coverage/unit -o=unit_coverage.txt
+        run: go tool covdata textfmt -i=./coverage/unit -o=unit_coverage.txt
       - name: Upload unit coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -94,20 +99,12 @@ jobs:
 
   test-integration:
     env:
-      FLAKEGUARD_GOCOVERDIR: coverage/integration
+      FLAKEGUARD_GOCOVERDIR: ./coverage/integration
     runs-on: ubuntu-latest
     needs: build
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      - name: Install Dependencies
-        run: go mod download
-      - name: Create coverage directory
-        run: mkdir -p coverage/integration
       - name: Download binary artifact
         uses: actions/download-artifact@v4
         with:
@@ -115,10 +112,22 @@ jobs:
           path: ./flakeguard_covered
       - name: Make binary executable
         run: chmod +x ./flakeguard_covered
+      - name: Create coverage directory
+        run: mkdir -p ./coverage/integration
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: DEBUG: Print working directory
+        run: pwd
+      - name: DEBUG: ls
+        run: ls -la
       - name: Run Integration Tests
         run: go tool gotestsum -- -run TestIntegration ./...
       - name: Format coverage report
-        run: go tool covdata textfmt -i=coverage/integration -o=integration_coverage.txt
+        run: go tool covdata textfmt -i=./coverage/integration -o=integration_coverage.txt
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

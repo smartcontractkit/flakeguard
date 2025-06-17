@@ -36,7 +36,8 @@ func TestMain(m *testing.M) {
 	var err error
 	flakeguardBinaryPath, flakeguardBuiltTime, err = findBinary()
 	if err != nil {
-		log.Fatalf("Hit error while looking for flakeguard binary for integration tests: %v", err)
+		log.Printf("Hit error while looking for flakeguard binary for integration tests: %v", err)
+		os.Exit(1)
 	}
 
 	// Check if a coverage-instrumented binary exists
