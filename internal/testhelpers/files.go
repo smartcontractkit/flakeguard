@@ -86,7 +86,7 @@ func CopyFile(tb testing.TB, src, dst string) error {
 		return fmt.Errorf("failed to open source file '%s': %w", src, err)
 	}
 
-	if err := os.WriteFile(dst, srcBytes, 0644); err != nil {
+	if err := os.WriteFile(dst, srcBytes, 0600); err != nil {
 		return fmt.Errorf("failed to write file '%s' to '%s': %w", src, dst, err)
 	}
 
