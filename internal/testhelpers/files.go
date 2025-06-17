@@ -66,7 +66,7 @@ func CopyFile(tb testing.TB, src, dst string) error {
 	tb.Helper()
 
 	if _, err := os.Stat(src); os.IsNotExist(err) {
-		return fmt.Errorf("source file %s does not exist", src)
+		return fmt.Errorf("source file '%s' does not exist", src)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
@@ -81,29 +81,13 @@ func CopyFile(tb testing.TB, src, dst string) error {
 		return fmt.Errorf("destination file '%s' already exists", dst)
 	}
 
-	srcFile, err := os.Open(src)
+	srcBytes, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file '%s': %w", src, err)
 	}
-	defer func() {
-		if err := srcFile.Close(); err != nil {
-			tb.Logf("Error closing file %s: %v", src, err)
-		}
-	}()
 
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file '%s': %w", dst, err)
-	}
-	defer func() {
-		if err := dstFile.Close(); err != nil {
-			tb.Logf("Error closing file %s: %v", dst, err)
-		}
-	}()
-
-	_, err = srcFile.WriteTo(dstFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file '%s' to '%s': %w", src, dst, err)
+	if err := os.WriteFile(dst, srcBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write file '%s' to '%s': %w", src, dst, err)
 	}
 
 	return nil
