@@ -270,11 +270,12 @@ func findProjectRoot(startDir string) (string, error) {
 
 // setupCoverageCollection sets up the GOCOVERDIR for testscript to use
 func setupCoverageCollection(env *testscript.Env) error {
-	var coverageDir string
+	var (
+		coverageDir     string
+		userCoverageDir = os.Getenv(CoverDirEnvVar)
+	)
 
 	// Check for a user-specified coverage directory first. This should be a global dir that is shared by all test runs.
-	userCoverageDir := os.Getenv(CoverDirEnvVar)
-
 	if userCoverageDir == "" {
 		return fmt.Errorf(
 			"no coverage directory specified, integration tests will not collect coverage data. Set the environment variable '%s' to enable coverage collection",
@@ -282,7 +283,12 @@ func setupCoverageCollection(env *testscript.Env) error {
 		)
 	}
 
-	coverageDir = filepath.Join(userCoverageDir, integrationTestCoverageDir)
+	if !strings.HasSuffix(userCoverageDir, integrationTestCoverageDir) {
+		coverageDir = filepath.Join(userCoverageDir, integrationTestCoverageDir)
+	} else {
+		coverageDir = userCoverageDir
+	}
+
 	if err := os.MkdirAll(coverageDir, 0750); err != nil {
 		return fmt.Errorf("failed to create coverage directory: %w", err)
 	}

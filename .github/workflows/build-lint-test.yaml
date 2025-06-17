@@ -69,13 +69,13 @@ jobs:
       - name: DEBUG Print working directory
         run: pwd
       - name: DEBUG ls
-        run: ls -la
-      - name: DEBUG ls coverage/
-        run: ls -la ./coverage/
+        run: |
+          ls -la
+          ls -la ./coverage/
       - name: Run Unit Tests
-        run: go tool gotestsum -- -cover -skip TestIntegration ./... -args -test.gocoverdir=./coverage/unit
+        run: go tool gotestsum -- -cover -skip TestIntegration ./... -args -test.gocoverdir=coverage/unit
       - name: Format coverage report
-        run: go tool covdata textfmt -i=./coverage/unit -o=unit_coverage.txt
+        run: go tool covdata textfmt -i=coverage/unit -o=unit_coverage.txt
       - name: Upload unit coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -126,7 +126,9 @@ jobs:
       - name: DEBUG Print working directory
         run: pwd
       - name: DEBUG ls
-        run: ls -la
+        run: |
+          ls -la
+          ls -la ./coverage/
       - name: Run Integration Tests
         run: go tool gotestsum -- -run TestIntegration ./...
       - name: Format coverage report
