@@ -42,16 +42,18 @@ We use [golangci-lint v2](https://golangci-lint.run/) for linting and formatting
 pre-commit install # Install our pre-commit scripts
 ```
 
-See the [Makefile](./Makefile) for helpful commands.
+See the [Makefile](./Makefile) for helpful commands for local development.
 
 ```sh
 make build            # Build binaries, results placed in dist/
 
 make lint             # Lint and format code
 
+make test_short       # Run only short tests
 make test_unit        # Run only unit tests
 make test_integration # Run only integration tests
 make test_full        # Run all tests with extensive coverage stats
+make test_full_race   # Run all tests with extensive coverage stats and race detection
 ```
 
 ### Test

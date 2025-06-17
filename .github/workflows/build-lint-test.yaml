@@ -1,0 +1,161 @@
+name: Build, Lint, and Test
+on:
+    push:
+        branches:
+          - main
+        tags:
+          - '*'
+    pull_request:
+        branches:
+          - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+      - name: Install Dependencies
+        run: go mod download
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: build --clean --snapshot --single-target
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload covered binary for integration tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: flakeguard_covered
+          path: dist/linux_amd64/covered_linux_amd64_v1/flakeguard_covered
+          retention-days: 1
+      - name: Upload main binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: flakeguard
+          path: dist/linux_amd64/main_linux_amd64_v1/flakeguard
+          retention-days: 1
+
+  test-unit:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: Create coverage directory
+        run: mkdir -p coverage/unit
+      - name: Run Unit Tests
+        run: go tool gotestsum -- -cover -covermode=atomic -skip TestIntegration ./... -args -test.gocoverdir=coverage/unit
+      - name: Format coverage report
+        run: go tool covdata textfmt -i=coverage/unit -o=unit_coverage.txt
+      - name: Upload unit coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit
+          name: unit-tests
+          file: unit_coverage.txt
+          fail_ci_if_error: false
+
+  test-unit-race:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: Run Unit Tests with Race
+        run: go tool gotestsum -- -race -skip TestIntegration ./...
+
+  test-integration:
+    env:
+      FLAKEGUARD_GOCOVERDIR: coverage/integration
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: Create coverage directory
+        run: mkdir -p coverage/integration
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flakeguard_covered
+          path: ./flakeguard_covered
+      - name: Make binary executable
+        run: chmod +x ./flakeguard_covered
+      - name: Run Integration Tests
+        run: go tool gotestsum -- -run TestIntegration ./...
+      - name: Format coverage report
+        run: go tool covdata textfmt -i=coverage/integration -o=integration_coverage.txt
+      - name: Upload integration coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+          name: integration-tests
+          file: integration_coverage.txt
+          fail_ci_if_error: false
+
+  test-integration-race:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Dependencies
+        run: go mod download
+      - name: Create coverage directory # This might be unnecessary
+        run: mkdir -p coverage/integration
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flakeguard_covered
+          path: ./flakeguard_covered
+      - name: Make binary executable
+        run: chmod +x ./flakeguard_covered
+      - name: Run Integration Tests with Race
+        env:
+          FLAKEGUARD_GOCOVERDIR: coverage/integration
+        run: go tool gotestsum -- -run TestIntegration -race ./...

@@ -16,8 +16,11 @@ test_race:
 # Set default coverage directory if not provided
 GOCOVERDIR ?= $(PWD)/coverage
 
-test_unit:
+test_short:
 	go tool gotestsum -- -cover -short ./...
+
+test_unit:
+	go tool gotestsum -- -cover -skip TestIntegration ./...
 
 test_integration: clean_coverage build
 	@mkdir -p $(GOCOVERDIR)
