@@ -89,7 +89,6 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 
 	return func(env *testscript.Env) error {
 		l := testhelpers.Logger(t)
-		t.Cleanup(cleanupTestscriptFunc(t, env))
 		// Copy example_tests directory to the testscript working directory
 		exampleTestsSource := filepath.Join("..", "..", "example_tests")
 		exampleTestsDest := filepath.Join(env.WorkDir, "example_tests")
@@ -168,24 +167,6 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 		}
 
 		return nil
-	}
-}
-
-// cleanupTestscriptFunc is a function that is called when a test fails.
-// It prints out some of the non-obvious file structures of testscript to help debug failures.
-func cleanupTestscriptFunc(t *testing.T, env *testscript.Env) func() {
-	t.Helper()
-
-	return func() {
-		if t.Failed() {
-			t.Log("Test failed, printing $WORK dir")
-			t.Logf("Work dir: %s", env.WorkDir)
-			entries, err := os.ReadDir(env.WorkDir)
-			if err != nil {
-				t.Logf("Error reading work dir: %v", err)
-			}
-			t.Logf("Contents of work dir: %v", entries)
-		}
 	}
 }
 

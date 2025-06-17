@@ -71,6 +71,14 @@ func CopyFile(tb testing.TB, src, dst string) error {
 		return fmt.Errorf("failed to create directory '%s' for destination file '%s': %w", filepath.Dir(dst), dst, err)
 	}
 
+	destInfo, err := os.Stat(dst)
+	if err == nil {
+		if destInfo.IsDir() {
+			return fmt.Errorf("destination file '%s' is a directory", dst)
+		}
+		return fmt.Errorf("destination file '%s' already exists", dst)
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file '%s': %w", src, err)
