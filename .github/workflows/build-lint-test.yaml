@@ -104,11 +104,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: flakeguard_covered
-          path: ./flakeguard_covered
-      - name: Make binary executable
-        run: chmod +x $(pwd)/flakeguard_covered
-      - name: Add binary to PATH
-        run: echo "$(pwd)/flakeguard_covered" >> $GITHUB_PATH
+          path: ./artifact
+      - name: Move binary to root and make executable
+        run: |
+          mv ./artifact/flakeguard_covered ./flakeguard_covered
+          chmod +x ./flakeguard_covered
       - name: Create coverage directory
         run: mkdir -p $(pwd)/coverage/integration
       - name: Set up Go
@@ -146,11 +146,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: flakeguard_covered
-          path: ./flakeguard_covered
-      - name: Make binary executable
-        run: chmod +x ./flakeguard_covered
-      - name: Add binary to PATH
-        run: echo "$(pwd)/flakeguard_covered" >> $GITHUB_PATH
+          path: ./artifact
+      - name: Move binary to root and make executable
+        run: |
+          mv ./artifact/flakeguard_covered ./flakeguard_covered
+          chmod +x ./flakeguard_covered
       - name: Run Integration Tests with Race
         env:
           FLAKEGUARD_GOCOVERDIR: coverage/integration
