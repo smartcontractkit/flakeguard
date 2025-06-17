@@ -152,6 +152,7 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 				Msg("Running integration tests with flakeguard binary")
 			if time.Since(flakeguardBuiltTime) > time.Minute {
 				l.Warn().
+					Str("hintIfInCI", "If you're running these tests in CI, it's common and likely harmless. The timestamp given to the binary is often weird in CI.").
 					Time("flakeguardBuiltTime", flakeguardBuiltTime).
 					Str("flakeguardBinaryAge", time.Since(flakeguardBuiltTime).String()).
 					Msg("flakeguard binary is older than 1 minute, consider rebuilding")
