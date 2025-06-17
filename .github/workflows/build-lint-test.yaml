@@ -117,12 +117,6 @@ jobs:
           go-version: stable
       - name: Install Dependencies
         run: go mod download
-      - name: DEBUG Print working directory
-        run: pwd
-      - name: DEBUG ls
-        run: |
-          ls -la
-          ls -la ./coverage/
       - name: Run Integration Tests
         run: go tool gotestsum -- -run TestIntegration ./...
       - name: Format coverage report
