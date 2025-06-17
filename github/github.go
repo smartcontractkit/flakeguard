@@ -9,16 +9,16 @@ import (
 	"os"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/rs/zerolog"
 )
 
 var (
+	// ErrNotInActions is returned when the code is not running in a GitHub Actions environment.
 	ErrNotInActions = errors.New("not in GitHub Actions environment")
 )
 
-// Tracks GitHub Actions environment variables
+// ActionsEnv tracks GitHub Actions environment variables
 // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
-type actionsEnvVars struct {
+type ActionsEnv struct {
 	Action           string `json:"GITHUB_ACTION,omitempty"              env:"GITHUB_ACTION"`
 	ActionPath       string `json:"GITHUB_ACTION_PATH,omitempty"         env:"GITHUB_ACTION_PATH"`
 	ActionRepository string `json:"GITHUB_ACTION_REPOSITORY,omitempty"   env:"GITHUB_ACTION_REPOSITORY"`
@@ -65,23 +65,24 @@ type actionsEnvVars struct {
 	RunnerToolCache   string `json:"RUNNER_TOOL_CACHE,omitempty"          env:"RUNNER_TOOL_CACHE"`
 }
 
-// ActionsEnvVars returns the GitHub Actions environment variables if running in a GitHub Actions environment
+// GetActionsEnv returns the GitHub Actions environment variables if running in a GitHub Actions environment
 // Otherwise, it returns ErrNotInActions
-func ActionsEnvVars() (actionsEnvVars, error) {
+func GetActionsEnv() (ActionsEnv, error) {
 	if os.Getenv("GITHUB_ACTIONS") != "true" {
-		return actionsEnvVars{}, ErrNotInActions
+		return ActionsEnv{}, ErrNotInActions
 	}
 
-	var envVars actionsEnvVars
+	var envVars ActionsEnv
 	if err := env.Parse(&envVars); err != nil {
-		return actionsEnvVars{}, fmt.Errorf("unable to parse GitHub Actions environment variables: %w", err)
+		return ActionsEnv{}, fmt.Errorf("unable to parse GitHub Actions environment variables: %w", err)
 	}
 
 	return envVars, nil
 }
 
-func RepoInfo(l zerolog.Logger, restClient *Client, repoOwner, repoName string) error {
-	repo, resp, err := restClient.Rest.Repositories.Get(context.Background(), repoOwner, repoName)
+// RepoInfo gets the repository information from the GitHub API.
+func RepoInfo(client *Client, repoOwner, repoName string) error {
+	repo, resp, err := client.Rest.Repositories.Get(context.Background(), repoOwner, repoName)
 	if err != nil {
 		return fmt.Errorf("failed to get GitHub repo info: %w", err)
 	}

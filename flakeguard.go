@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+// RunQuarantinedTestsEnvVar is the environment variable that controls whether to run quarantined tests.
+// Set to true to run quarantined tests, false to skip them.
+// This is helpful to keep track of tests' flakiness even when they are quarantined.
 const RunQuarantinedTestsEnvVar = "FLAKEGUARD_RUN_QUARANTINED_TESTS"
 
 // Quarantine a test so that it is skipped during your CI/CD pipelines.

@@ -21,7 +21,7 @@ var (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print Flakeguard version info",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Printf(
 			"flakeguard version %s built with %s from commit %s at %s by %s\n",
 			version,

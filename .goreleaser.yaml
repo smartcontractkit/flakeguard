@@ -8,9 +8,11 @@ before:
 builds:
   - id: covered
     main: ./cmd/flakeguard/main.go
-    flags: -cover
+    flags:
+      - -cover
+      - -race
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - linux
       - darwin

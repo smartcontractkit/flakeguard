@@ -19,6 +19,7 @@ linters:
     - paralleltest
     - copyloopvar
     - godox
+    - revive
   settings:
     godox:
       keywords:

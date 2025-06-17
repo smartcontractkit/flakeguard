@@ -1,3 +1,4 @@
+// Package git enables basic git operations.
 package git
 
 import (

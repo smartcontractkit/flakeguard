@@ -122,6 +122,7 @@ func (s *reportSummary) String() string {
 	)
 }
 
+// reportOptions holds the options for the report.
 type reportOptions struct {
 	dryRun    bool
 	reportDir string
@@ -150,6 +151,7 @@ func defaultOptions() reportOptions {
 	}
 }
 
+// Option is a function that sets an option for the report.
 type Option func(*reportOptions)
 
 // DryRun disables reporting to outside services (Splunk, Slack, etc.), useful for debugging
@@ -159,8 +161,8 @@ func DryRun() Option {
 	}
 }
 
-// ReportDir sets the directory to write reports files to. If not set, reports will be written to the current working directory.
-func ReportDir(path string) Option {
+// WithDir sets the directory to write reports files to. If not set, reports will be written to the current working directory.
+func WithDir(path string) Option {
 	return func(o *reportOptions) {
 		o.reportDir = path
 	}
@@ -229,7 +231,7 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 	eg := errgroup.Group{}
 	if opts.toConsole {
 		eg.Go(func() error {
-			return writeToConsole(l, summary, results)
+			return writeToConsole(summary, results)
 		})
 	}
 

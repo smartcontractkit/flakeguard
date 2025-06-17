@@ -1,0 +1,32 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 75%
+        threshold: 5%
+      unit:
+        flags:
+          - unit
+        target: 85%
+        threshold: 3%
+      integration:
+        flags:
+          - integration
+        target: 50%
+        threshold: 10%
+    patch:
+      default:
+        target: 80%
+
+flags:
+  unit:
+    carryforward: true
+  integration:
+    carryforward: true
+  combined:
+    carryforward: true
+
+comment:
+  layout: "header, diff, flags, files"
+  behavior: default
+  require_changes: false

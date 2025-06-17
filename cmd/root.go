@@ -59,7 +59,7 @@ Examples:
   flakeguard -c -- --format testname -- ./pkg/...
   flakeguard --runs 10 -- --format dots -- -v -run TestMyFunction`,
 	SilenceUsage: true,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		// Setup logging
 		loggingOpts := []logging.Option{}
 		if !enableConsoleLogs {
@@ -148,6 +148,7 @@ func init() {
 	rootCmd.Flags().SetInterspersed(false)
 }
 
+// Execute executes the root flakeguard command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		logger.Error().Err(err).Msg("Failed to execute command")
@@ -198,17 +199,15 @@ func testRunInfo(
 	}
 
 	// Get GitHub Actions data if available
-	githubEnv, err := fg_github.ActionsEnvVars()
+	githubEnv, err := fg_github.GetActionsEnv()
 	if err != nil && !errors.Is(err, fg_github.ErrNotInActions) {
 		return t, fmt.Errorf("failed to get GitHub Actions environment variables: %w", err)
-	} else {
-		t.GitHubEvent = githubEnv.EventName
-
-		t.BaseBranch = githubEnv.BaseRef
 	}
+	t.GitHubEvent = githubEnv.EventName
+	t.BaseBranch = githubEnv.BaseRef
 
 	// Get GitHub Repo data if available
-	err = fg_github.RepoInfo(l, githubClient, repoInfo.Owner, repoInfo.Name)
+	err = fg_github.RepoInfo(githubClient, repoInfo.Owner, repoInfo.Name)
 	if err != nil {
 		return t, fmt.Errorf("failed to get GitHub repo info: %w", err)
 	}

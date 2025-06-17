@@ -7,9 +7,13 @@ package exit
 import "fmt"
 
 const (
-	CodeSuccess         = 0
-	CodeGoFailingTest   = 1
-	CodeGoBuildError    = 2
+	// CodeSuccess is the exit code for a successful go test run.
+	CodeSuccess = 0
+	// CodeGoFailingTest is the exit code go test returns when a test fails (along with a bunch of other issues at test runtime).
+	CodeGoFailingTest = 1
+	// CodeGoBuildError is the exit code for a build error when running go test.
+	CodeGoBuildError = 2
+	// CodeFlakeguardError is the exit code for a flakeguard specific error.
 	CodeFlakeguardError = 3
 )
 
@@ -19,6 +23,7 @@ type Error struct {
 	Err  error
 }
 
+// Error returns a string representation of the error.
 func (e *Error) Error() string {
 	if e.Err != nil {
 		return e.Err.Error()
@@ -26,6 +31,7 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("exit code %d", e.Code)
 }
 
+// Unwrap returns the wrapped error.
 func (e *Error) Unwrap() error {
 	return e.Err
 }
