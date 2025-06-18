@@ -113,7 +113,8 @@ func runDetect(
 
 	startDetectTime := time.Now()
 	err = gotestsumCmd.Run("gotestsum", fullArgs)
-	l.Debug().Err(err).Msg("Detect run completed")
+	exitCode := getExitCode(err)
+	l.Debug().Err(err).Int("exitCode", exitCode).Msg("Detect run completed")
 	return detectFile, handleTestRunError(l, run, err, startDetectTime)
 }
 
@@ -121,6 +122,19 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().
 		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This is a soft-limit, and will not abort in the middle of a run.")
+}
+
+// getExitCode extracts the exit code from an error returned by exec.Cmd
+func getExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	if exitError, ok := err.(*exec.ExitError); ok {
+		if status, ok := exitError.Sys().(syscall.WaitStatus); ok {
+			return status.ExitStatus()
+		}
+	}
+	return -1 // Unknown exit code
 }
 
 // handleTestRunError handles the error from a test run, exiting with the appropriate code.
