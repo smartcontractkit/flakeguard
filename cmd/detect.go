@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	gotestsumCmd "gotest.tools/gotestsum/cmd"
 
@@ -56,8 +57,8 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 	detectFiles := make([]string, 0, runs)
 	startTime := time.Now()
 	for run := range runs {
-		detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
-		if err := handleTestRunError(run, err); err != nil {
+		detectFile, err := runDetect(logger, run, originalGotestsumFlags, goTestFlags)
+		if err != nil {
 			return err
 		}
 		detectFiles = append(detectFiles, detectFile)
@@ -92,6 +93,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 
 // runDetect runs a single detect run.
 func runDetect(
+	l zerolog.Logger,
 	run int,
 	originalGotestsumFlags []string,
 	goTestFlags []string,
@@ -102,14 +104,17 @@ func runDetect(
 	//nolint:gocritic // The slice appends are needed to avoid modifying the original slices
 	fullArgs := append(gotestsumFlags, "--")
 	fullArgs = append(fullArgs, goTestFlags...)
-	logger.Info().
-		Strs("gotestsumFlags", gotestsumFlags).
-		Strs("goTestFlags", goTestFlags).
-		Strs("fullArgs", fullArgs).
+	l = l.With().
 		Int("run", run+1).
-		Msg("Detect run")
+		Str("detectResultsFile", detectFile).
+		Strs("gotestsumFlags", originalGotestsumFlags).
+		Strs("goTestFlags", goTestFlags).
+		Logger()
 
-	return detectFile, gotestsumCmd.Run("gotestsum", fullArgs)
+	startDetectTime := time.Now()
+	err = gotestsumCmd.Run("gotestsum", fullArgs)
+	l.Debug().Err(err).Msg("Detect run completed")
+	return detectFile, handleTestRunError(l, run, err, startDetectTime)
 }
 
 func init() {
@@ -119,9 +124,11 @@ func init() {
 }
 
 // handleTestRunError handles the error from a test run, exiting with the appropriate code.
-func handleTestRunError(run int, err error) error {
+func handleTestRunError(l zerolog.Logger, run int, err error, startRunTime time.Time) error {
+	l = l.With().Int("run", run+1).Str("duration", time.Since(startRunTime).String()).Logger()
 	if err == nil {
-		logger.Debug().Msgf("Run %d: All tests passed", run+1)
+		l.Info().
+			Msg("All tests passed!")
 		return nil
 	}
 
@@ -132,30 +139,25 @@ func handleTestRunError(run int, err error) error {
 
 			switch exitCode {
 			case exit.CodeSuccess:
-				logger.Info().Int("run", run+1).Msg("All tests passed")
+				l.Info().Msg("All tests passed")
 				return nil
 
 			case exit.CodeGoFailingTest:
-				logger.Info().
-					Int("run", run+1).
-					Int("exit_code", exitCode).
-					Msg("Found flaky tests")
+				l.Warn().Err(err).Int("exit_code", exitCode).Msg("Found flaky tests")
 				// Test failures are expected in flaky test detection, so we continue
 				return nil
 
 			case exit.CodeGoBuildError:
-				logger.Error().
+				l.Error().
 					Err(err).
-					Int("run", run+1).
 					Int("exit_code", exitCode).
 					Msg("Build/compilation error")
 				// Build errors are serious and should stop the detection process
 				return exit.New(exit.CodeGoBuildError, fmt.Errorf("build error on run %d: %w", run+1, err))
 
 			default:
-				logger.Warn().
+				l.Error().
 					Err(err).
-					Int("run", run+1).
 					Int("exit_code", exitCode).
 					Msg("Unexpected exit code")
 				// For other exit codes, log but continue
@@ -165,6 +167,6 @@ func handleTestRunError(run int, err error) error {
 	}
 
 	// For other types of errors (like command not found), return the error
-	logger.Error().Int("run", run+1).Err(err).Msg("Flakeguard encountered an error")
+	l.Error().Err(err).Msg("Flakeguard encountered an error")
 	return exit.New(exit.CodeFlakeguardError, fmt.Errorf("flakeguard encountered an error on run %d: %w", run+1, err))
 }
