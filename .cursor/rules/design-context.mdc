@@ -1,0 +1,6 @@
+---
+description: Read the context of design documents to help answer questions and make decisions about Flakeguard design and UX.
+globs:
+alwaysApply: false
+---
+Here are critical design files you can read to see guiding principles and ideas for how Flakeguard should work: [README.md](mdc:README.md) [ideal-developer-experiences.md](mdc:ideal-developer-experiences.md) [design.md](mdc:design.md)

@@ -2,11 +2,13 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"runtime"
 
+	"github.com/charmbracelet/fang"
 	"github.com/go-git/go-git/v5"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -50,14 +52,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flakeguard [detect | guard] [flakeguard-flags] [-- gotestsum-flags] [-- go-test-flags]",
-	Short: "Detect and prevent flaky tests from disrupting CI/CD pipelines",
-	Long: `Flakeguard helps you detect and prevent flaky tests from disrupting CI/CD pipelines.
-It wraps gotestsum, so you can pass through all the flags you're used to using.
-
-Examples:
-  flakeguard -c -- --format testname -- ./pkg/...
-  flakeguard --runs 10 -- --format dots -- -v -run TestMyFunction`,
+	Use:          "flakeguard [detect | guard] [--flakeguard-flags] [-- gotestsum-flags] [-- go-test-flags]",
+	Short:        "Detect and prevent flaky tests from disrupting CI/CD pipelines",
+	Long:         `Flakeguard helps you detect and prevent flaky tests from disrupting CI/CD pipelines.`,
 	SilenceUsage: true,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		// Setup logging
@@ -85,20 +82,26 @@ Examples:
 			return exit.New(exit.CodeFlakeguardError, err)
 		}
 
+		gotestsumVersion, err := getGoTestSumVersion()
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get gotestsum version")
+		}
+
 		logger.Debug().
 			Str("version", version).
 			Str("commit", commit).
-			Str("buildTime", buildTime).
-			Str("builtBy", builtBy).
-			Str("builtWith", builtWith).
-			Str("goVersion", runtime.Version()).
+			Str("build_time", buildTime).
+			Str("built_by", builtBy).
+			Str("built_with", builtWith).
+			Str("go_version", runtime.Version()).
+			Str("gotestsum_version", gotestsumVersion).
 			Str("os", runtime.GOOS).
 			Str("arch", runtime.GOARCH).
-			Str("logFile", logFile).
-			Str("logLevel", logLevel).
-			Bool("enableConsoleLogs", enableConsoleLogs).
+			Str("log_file", logFile).
+			Str("log_level", logLevel).
+			Bool("enable_console_logs", enableConsoleLogs).
 			Int("runs", runs).
-			Str("outputDir", outputDir).
+			Str("output_dir", outputDir).
 			Msg("Run info")
 		return nil
 	},
@@ -150,7 +153,8 @@ func init() {
 
 // Execute executes the root flakeguard command.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	err := fang.Execute(context.Background(), rootCmd, fang.WithVersion(version), fang.WithCommit(commit))
+	if err != nil {
 		logger.Error().Err(err).Msg("Failed to execute command")
 		os.Exit(exit.GetCode(err))
 	}
