@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,6 +40,7 @@ jobs:
 
   lint:
     needs: build
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -55,8 +57,12 @@ jobs:
           version: latest
 
   test-unit:
+    name: ${{ matrix.race && 'Unit Tests (race)' || 'Unit Tests' }}
     runs-on: ubuntu-latest
     needs: build
+    strategy:
+      matrix:
+        race: [true, false]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,9 +72,19 @@ jobs:
           go-version: stable
       - name: Install Dependencies
         run: go mod download
+      - name: Create Run Command
+        run: |
+          if [ "${{ matrix.race }}" = "true" ]; then
+            run_command="go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration -race ./..."
+          else
+            run_command="go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration ./..."
+          fi
+          echo "RUN_COMMAND=$run_command" >> $GITHUB_ENV
+          echo "Run command: $run_command"
       - name: Run Unit Tests
-        run: go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration ./...
+        run: $RUN_COMMAND
       - name: Upload unit coverage to Codecov
+        if: ${{ matrix.race == false }}
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -77,27 +93,16 @@ jobs:
           file: unit_coverage.txt
           fail_ci_if_error: false
 
-  test-unit-race:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      - name: Install Dependencies
-        run: go mod download
-      - name: Run Unit Tests with Race
-        run: go tool gotestsum -- -race -skip TestIntegration ./...
-
   test-integration:
+    name: ${{ matrix.race && 'Integration Tests (race)' || 'Integration Tests' }}
     env:
-      GOCOVERDIR: coverage/integration
-      FLAKEGUARD_GOCOVERDIR: coverage/integration
+      GOCOVERDIR: ${{ github.workspace }}/coverage/integration
+      FLAKEGUARD_GOCOVERDIR: ${{ github.workspace }}/coverage/integration
     runs-on: ubuntu-latest
     needs: build
+    strategy:
+      matrix:
+        race: [true, false]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -111,18 +116,29 @@ jobs:
           mv ./artifact/flakeguard_covered ./flakeguard_covered
           chmod +x ./flakeguard_covered
       - name: Create coverage directory
-        run: mkdir -p $(pwd)/$GOCOVERDIR
+        run: mkdir -p $GOCOVERDIR
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: stable
       - name: Install Dependencies
         run: go mod download
+      - name: Create Run Command
+        run: |
+          if [ "${{ matrix.race }}" = "true" ]; then
+            run_command="go tool gotestsum -- -run TestIntegration -race ./..."
+          else
+            run_command="go tool gotestsum -- -run TestIntegration ./..."
+          fi
+          echo "RUN_COMMAND=$run_command" >> $GITHUB_ENV
+          echo "Run command: $run_command"
       - name: Run Integration Tests
-        run: go tool gotestsum --format standard-verbose -- -run TestIntegration ./...
+        run: $RUN_COMMAND
       - name: Format coverage report
-        run: go tool covdata textfmt -i=coverage/integration -o=integration_coverage.txt
+        if: ${{ matrix.race == false }}
+        run: go tool covdata textfmt -i=$GOCOVERDIR -o=integration_coverage.txt
       - name: Upload integration coverage to Codecov
+        if: ${{ matrix.race == false }}
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -130,29 +146,3 @@ jobs:
           name: integration-tests
           file: integration_coverage.txt
           fail_ci_if_error: false
-
-  test-integration-race:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      - name: Install Dependencies
-        run: go mod download
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: flakeguard_covered
-          path: ./artifact
-      - name: Move binary to root and make executable
-        run: |
-          mv ./artifact/flakeguard_covered ./flakeguard_covered
-          chmod +x ./flakeguard_covered
-      - name: Run Integration Tests with Race
-        env:
-          FLAKEGUARD_GOCOVERDIR: coverage/integration
-        run: go tool gotestsum -- -run TestIntegration -race ./...
