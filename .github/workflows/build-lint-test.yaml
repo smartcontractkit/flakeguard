@@ -94,7 +94,8 @@ jobs:
 
   test-integration:
     env:
-      FLAKEGUARD_GOCOVERDIR: ./coverage/integration
+      GOCOVERDIR: coverage/integration
+      FLAKEGUARD_GOCOVERDIR: coverage/integration
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -110,7 +111,7 @@ jobs:
           mv ./artifact/flakeguard_covered ./flakeguard_covered
           chmod +x ./flakeguard_covered
       - name: Create coverage directory
-        run: mkdir -p $(pwd)/coverage/integration
+        run: mkdir -p $(pwd)/$GOCOVERDIR
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -118,7 +119,7 @@ jobs:
       - name: Install Dependencies
         run: go mod download
       - name: Run Integration Tests
-        run: go tool gotestsum -- -run TestIntegration ./...
+        run: go tool gotestsum --format standard-verbose -- -run TestIntegration ./...
       - name: DEBUG Coverage Directory
         run: |
           pwd
@@ -129,7 +130,7 @@ jobs:
           echo "DEBUG: Integration directory:"
           ls -la coverage/integration
       - name: Format coverage report
-        run: go tool covdata textfmt -i=./coverage/integration -o=integration_coverage.txt
+        run: go tool covdata textfmt -i=coverage/integration -o=integration_coverage.txt
       - name: Upload integration coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
