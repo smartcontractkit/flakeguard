@@ -60,6 +60,13 @@ make test_full        # Run all tests with extensive coverage stats
 make test_full_race   # Run all tests with extensive coverage stats and race detection
 ```
 
+### Cursor
+
+If you use [Cursor](https://www.cursor.com/), you can utilize the rules included in [.cursor/rules](./.cursor/rules/) to guide suggestions.
+
+* **@design-context**: Read design docs to help guide suggestions.
+*
+
 ### Test
 
 * `FLAKEGUARD_TEST_LOG_LEVEL` Sets the logging level for tests to use, use `FLAKEGUARD_TEST_LOG_LEVEL=trace` if you're chasing down confusing bugs.
