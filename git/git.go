@@ -20,8 +20,8 @@ type BasicRepoInfo struct {
 }
 
 var (
-	sshURLRe   = regexp.MustCompile(`^[^:]+@[^:]+:([^/]+)/([^.]+)\.git$`)
-	httpsURLRe = regexp.MustCompile(`^https?://[^/]+/([^/]+)/([^.]+)\.git$`)
+	sshURLRe   = regexp.MustCompile(`^[^:]+@[^:]+:([^/]+)/([^.]+)(\.git)?$`)
+	httpsURLRe = regexp.MustCompile(`^https?://[^/]+/([^/]+)/([^.]+)(\.git)?$`)
 )
 
 // parseGitURL extracts owner and repo name from a git URL

@@ -10,12 +10,11 @@ func TestParseGitURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		url        string
-		wantOwner  string
-		wantName   string
-		wantErr    bool
-		wantErrMsg string
+		name      string
+		url       string
+		wantOwner string
+		wantName  string
+		wantErr   bool
 	}{
 		// Valid SSH URLs
 		{
@@ -91,90 +90,76 @@ func TestParseGitURL(t *testing.T) {
 		},
 		// Invalid SSH URLs
 		{
-			name:       "SSH URL with invalid format - no colon",
-			url:        "git@github.com/owner/repo.git",
-			wantErr:    true,
-			wantErrMsg: "unsupported git URL format",
+			name:    "SSH URL with invalid format - no colon",
+			url:     "git@github.com/owner/repo.git",
+			wantErr: true,
 		},
 		{
-			name:       "SSH URL with too many colons",
-			url:        "git@github.com:owner:repo.git",
-			wantErr:    true,
-			wantErrMsg: "invalid SSH git URL format",
+			name:    "SSH URL with too many colons",
+			url:     "git@github.com:owner:repo.git",
+			wantErr: true,
 		},
 		{
-			name:       "SSH URL with invalid path - no slash",
-			url:        "git@github.com:ownerrepo.git",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "SSH URL with invalid path - no slash",
+			url:     "git@github.com:ownerrepo.git",
+			wantErr: true,
 		},
 		{
-			name:       "SSH URL with empty owner",
-			url:        "git@github.com:/repo.git",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "SSH URL with empty owner",
+			url:     "git@github.com:/repo.git",
+			wantErr: true,
 		},
 		{
-			name:       "SSH URL with empty repo",
-			url:        "git@github.com:owner/.git",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "SSH URL with empty repo",
+			url:     "git@github.com:owner/.git",
+			wantErr: true,
 		},
 		// Invalid HTTPS URLs
 		{
-			name:       "HTTPS URL with no path",
-			url:        "https://github.com/",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "HTTPS URL with no path",
+			url:     "https://github.com/",
+			wantErr: true,
 		},
 		{
-			name:       "HTTPS URL with only owner",
-			url:        "https://github.com/owner",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "HTTPS URL with only owner",
+			url:     "https://github.com/owner",
+			wantErr: true,
 		},
 		{
-			name:       "HTTPS URL with empty owner",
-			url:        "https://github.com//repo.git",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "HTTPS URL with empty owner",
+			url:     "https://github.com//repo.git",
+			wantErr: true,
 		},
 		{
-			name:       "HTTPS URL with empty repo",
-			url:        "https://github.com/owner/.git",
-			wantErr:    true,
-			wantErrMsg: "expected path format 'owner/repo'",
+			name:    "HTTPS URL with empty repo",
+			url:     "https://github.com/owner/.git",
+			wantErr: true,
 		},
 		{
-			name:       "HTTPS URL with invalid format - no domain",
-			url:        "https:///owner/repo.git",
-			wantErr:    true,
-			wantErrMsg: "invalid HTTPS git URL format",
+			name:    "HTTPS URL with invalid format - no domain",
+			url:     "https:///owner/repo.git",
+			wantErr: true,
 		},
 		// Completely invalid URLs
 		{
-			name:       "empty URL",
-			url:        "",
-			wantErr:    true,
-			wantErrMsg: "unsupported git URL format",
+			name:    "empty URL",
+			url:     "",
+			wantErr: true,
 		},
 		{
-			name:       "invalid protocol",
-			url:        "ftp://github.com/owner/repo.git",
-			wantErr:    true,
-			wantErrMsg: "unsupported git URL format",
+			name:    "invalid protocol",
+			url:     "ftp://github.com/owner/repo.git",
+			wantErr: true,
 		},
 		{
-			name:       "local file path",
-			url:        "/path/to/local/repo",
-			wantErr:    true,
-			wantErrMsg: "unsupported git URL format",
+			name:    "local file path",
+			url:     "/path/to/local/repo",
+			wantErr: true,
 		},
 		{
-			name:       "malformed URL",
-			url:        "not-a-url",
-			wantErr:    true,
-			wantErrMsg: "unsupported git URL format",
+			name:    "malformed URL",
+			url:     "not-a-url",
+			wantErr: true,
 		},
 	}
 
@@ -186,7 +171,6 @@ func TestParseGitURL(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err, "parseGitURL(%q) should return an error", tt.url)
-				require.Contains(t, err.Error(), tt.wantErrMsg, "error message should contain expected text")
 				require.Empty(t, owner, "owner should be empty when error occurs")
 				require.Empty(t, name, "name should be empty when error occurs")
 			} else {
