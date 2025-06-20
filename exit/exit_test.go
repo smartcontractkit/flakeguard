@@ -52,7 +52,8 @@ func TestGetCode(t *testing.T) {
 			require.Equal(t, test.want, got, "GetCode(%v) = %d, want %d", test.err, got, test.want)
 
 			// Only check unwrapping for *Error types
-			if _, ok := test.err.(*Error); ok {
+			if testErr, ok := test.err.(*Error); ok {
+				require.Equal(t, test.want, testErr.ExitCode())
 				require.Equal(t, test.underlyingError, errors.Unwrap(test.err))
 				if test.underlyingError != nil {
 					require.Equal(t, test.underlyingError.Error(), test.err.Error())

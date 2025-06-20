@@ -50,8 +50,8 @@ See the [Makefile](./Makefile) for helpful commands for local development.
 
 ```sh
 make build            # Build binaries, results placed in dist/
-
 make lint             # Lint and format code
+make bench            # Run all benchmarks
 
 make test_short       # Run only short tests
 make test_unit        # Run only unit tests

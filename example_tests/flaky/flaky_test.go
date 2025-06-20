@@ -1,5 +1,7 @@
 //go:build examples
 
+// Package flaky has multiple tests designed to flake at different rates.
+// P(flake) = 1 - (0.1 * 0.25 * 0.5) = 0.9875 = 98.75%
 package flaky
 
 import (
@@ -31,15 +33,6 @@ func TestFlakeFiftyPercent(t *testing.T) {
 
 	if rand.Intn(2) == 0 {
 		t.Log("I flake 50% of the time")
-		t.FailNow()
-	}
-}
-
-func TestFlakeSeventyFivePercent(t *testing.T) {
-	t.Parallel()
-
-	if rand.Intn(4) != 0 {
-		t.Log("I flake 75% of the time")
 		t.FailNow()
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	gotestsumCmd "gotest.tools/gotestsum/cmd"
 
@@ -36,45 +37,46 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 	originalGotestsumFlags, goTestFlags := parseArgs(args)
 	logger.Info().
 		Int("runs", runs).
-		Strs("enteredGotestsumFlags", originalGotestsumFlags).
-		Strs("enteredGoTestFlags", goTestFlags).
-		Strs("enteredArgs", args).
+		Strs("entered_gotestsum_flags", originalGotestsumFlags).
+		Strs("entered_go_test_flags", goTestFlags).
+		Strs("entered_args", args).
 		Msg("Detecting flaky tests")
+	fmt.Println("Detecting flaky tests")
 
 	if slices.Contains(originalGotestsumFlags, "--jsonfile") {
 		return fmt.Errorf("jsonfile flag cannot be overridden while using flakeguard")
 	}
 
+	// Intentionally set -count=1 to avoid caching test results during detection
 	for _, flag := range goTestFlags {
 		if strings.HasPrefix(flag, "-count=") {
 			return fmt.Errorf("-count flag in go test cannot be overridden while using flakeguard")
 		}
 	}
-
-	// Intentionally set -count=1 to avoid caching test results
 	goTestFlags = append(goTestFlags, "-count=1")
-	detectFiles := make([]string, 0, runs)
+
+	testRunInfo, err := testRunInfo(logger, githubClient, ".")
+	if err != nil {
+		return fmt.Errorf("failed to get test run info: %w", err)
+	}
+
 	startTime := time.Now()
+	detectFiles := []string{}
 	for run := range runs {
-		detectFile, err := runDetect(run, originalGotestsumFlags, goTestFlags)
-		if err := handleTestRunError(run, err); err != nil {
+		detectFile, err := runDetect(logger, run, originalGotestsumFlags, goTestFlags)
+		if err != nil {
 			return err
 		}
 		detectFiles = append(detectFiles, detectFile)
 		if durationTarget > 0 {
 			if time.Since(startTime) > durationTarget {
 				logger.Warn().
-					Str("durationTarget", durationTarget.String()).
-					Str("elapsedTime", time.Since(startTime).String()).
+					Str("duration_target", durationTarget.String()).
+					Str("elapsed_time", time.Since(startTime).String()).
 					Msg("Duration target hit, stopping detection")
 				break
 			}
 		}
-	}
-
-	testRunInfo, err := testRunInfo(logger, githubClient, ".")
-	if err != nil {
-		return fmt.Errorf("failed to get test run info: %w", err)
 	}
 
 	err = report.New(
@@ -84,7 +86,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 		report.WithDir(outputDir),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create flakeguard report: %w", err)
+		return err
 	}
 
 	return nil
@@ -92,6 +94,7 @@ func runDetectCmd(_ *cobra.Command, args []string) error {
 
 // runDetect runs a single detect run.
 func runDetect(
+	l zerolog.Logger,
 	run int,
 	originalGotestsumFlags []string,
 	goTestFlags []string,
@@ -102,14 +105,23 @@ func runDetect(
 	//nolint:gocritic // The slice appends are needed to avoid modifying the original slices
 	fullArgs := append(gotestsumFlags, "--")
 	fullArgs = append(fullArgs, goTestFlags...)
-	logger.Info().
-		Strs("gotestsumFlags", gotestsumFlags).
-		Strs("goTestFlags", goTestFlags).
-		Strs("fullArgs", fullArgs).
+	l = l.With().
 		Int("run", run+1).
-		Msg("Detect run")
+		Str("detect_results_file", detectFile).
+		Strs("gotestsum_flags", originalGotestsumFlags).
+		Strs("go_test_flags", goTestFlags).
+		Logger()
 
-	return detectFile, gotestsumCmd.Run("gotestsum", fullArgs)
+	startDetectTime := time.Now()
+	err = gotestsumCmd.Run("gotestsum", fullArgs)
+	l.Debug().Err(err).Str("duration", time.Since(startDetectTime).String()).Msg("Detect run completed")
+	if err != nil {
+		exitCode := getExitCode(err)
+		if exitCode != 1 { // Exit code 1 is expected when there are flaky tests
+			return detectFile, exit.New(exitCode, err)
+		}
+	}
+	return detectFile, nil
 }
 
 func init() {
@@ -118,53 +130,15 @@ func init() {
 		DurationVar(&durationTarget, "duration-target", 0, "Target duration for the full detection run. If set, detect will attempt to stop as soon as this duration is hit. This is a soft-limit, and will not abort in the middle of a run.")
 }
 
-// handleTestRunError handles the error from a test run, exiting with the appropriate code.
-func handleTestRunError(run int, err error) error {
+// getExitCode extracts the exit code from an error returned by exec.Cmd
+func getExitCode(err error) int {
 	if err == nil {
-		logger.Debug().Msgf("Run %d: All tests passed", run+1)
-		return nil
+		return 0
 	}
-
-	// Check if it's an exit error (command ran but exited with non-zero code)
 	if exitError, ok := err.(*exec.ExitError); ok {
 		if status, ok := exitError.Sys().(syscall.WaitStatus); ok {
-			exitCode := status.ExitStatus()
-
-			switch exitCode {
-			case exit.CodeSuccess:
-				logger.Info().Int("run", run+1).Msg("All tests passed")
-				return nil
-
-			case exit.CodeGoFailingTest:
-				logger.Info().
-					Int("run", run+1).
-					Int("exit_code", exitCode).
-					Msg("Found flaky tests")
-				// Test failures are expected in flaky test detection, so we continue
-				return nil
-
-			case exit.CodeGoBuildError:
-				logger.Error().
-					Err(err).
-					Int("run", run+1).
-					Int("exit_code", exitCode).
-					Msg("Build/compilation error")
-				// Build errors are serious and should stop the detection process
-				return exit.New(exit.CodeGoBuildError, fmt.Errorf("build error on run %d: %w", run+1, err))
-
-			default:
-				logger.Warn().
-					Err(err).
-					Int("run", run+1).
-					Int("exit_code", exitCode).
-					Msg("Unexpected exit code")
-				// For other exit codes, log but continue
-				return nil
-			}
+			return status.ExitStatus()
 		}
 	}
-
-	// For other types of errors (like command not found), return the error
-	logger.Error().Int("run", run+1).Err(err).Msg("Flakeguard encountered an error")
-	return exit.New(exit.CodeFlakeguardError, fmt.Errorf("flakeguard encountered an error on run %d: %w", run+1, err))
+	return -1 // Unknown exit code
 }

@@ -39,6 +39,10 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 	panickedPackages := []string{}
 
 	for _, line := range lines {
+		if line.Action == "build-fail" {
+			return nil, nil, exit.New(exit.CodeGoBuildError, fmt.Errorf("go test build failed"))
+		}
+
 		if _, ok := results[line.Package]; !ok {
 			results[line.Package] = make(map[string]*TestResult)
 		}
@@ -159,6 +163,10 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 		}
 		return resultSlice[i].Package < resultSlice[j].Package
 	})
+
+	if summary.UniqueTestsRun == 0 {
+		return nil, nil, exit.New(exit.CodeFlakeguardError, fmt.Errorf("no tests run"))
+	}
 
 	l.Trace().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")
 	return summary, resultSlice, nil

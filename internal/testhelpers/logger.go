@@ -85,10 +85,10 @@ func Logger(tb testing.TB, options ...Option) zerolog.Logger {
 		logging.WithWriters(opts.writers...),
 	}
 	log, err := logging.New(loggingOpts...)
+	require.NoError(tb, err, "error setting up logging")
 	if opts.soleWriter != nil {
 		log = log.Output(opts.soleWriter)
 	}
-	require.NoError(tb, err, "error setting up logging")
 	log = log.With().Str("running_test", tb.Name()).Logger()
 	return log
 }

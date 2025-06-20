@@ -90,6 +90,9 @@ func setupTestscript(t *testing.T) func(env *testscript.Env) error {
 	return func(env *testscript.Env) error {
 		l := testhelpers.Logger(t)
 
+		// Helpful for debugging failing tests
+		env.Setenv("FLAKEGUARD_LOG_LEVEL", "debug")
+
 		// Copy example_tests directory to the testscript working directory
 		exampleTestsSource := filepath.Join("..", "..", "example_tests")
 		exampleTestsDest := filepath.Join(env.WorkDir, "example_tests")

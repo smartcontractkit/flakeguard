@@ -31,6 +31,11 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("exit code %d", e.Code)
 }
 
+// ExitCode returns the exit code of the error.
+func (e *Error) ExitCode() int {
+	return e.Code
+}
+
 // Unwrap returns the wrapped error.
 func (e *Error) Unwrap() error {
 	return e.Err

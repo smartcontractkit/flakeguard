@@ -7,6 +7,9 @@ build:
 lint:
 	golangci-lint run --fix
 
+bench:
+	FLAKEGUARD_TEST_LOG_LEVEL=disabled go test -bench=. -benchmem -run=^$$ ./... -cpu=2,4,8
+
 test:
 	go tool gotestsum -- -cover ./...
 
