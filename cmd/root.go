@@ -90,18 +90,18 @@ var rootCmd = &cobra.Command{
 		logger.Debug().
 			Str("version", version).
 			Str("commit", commit).
-			Str("buildTime", buildTime).
-			Str("builtBy", builtBy).
-			Str("builtWith", builtWith).
-			Str("goVersion", runtime.Version()).
-			Str("gotestsumVersion", gotestsumVersion).
+			Str("build_time", buildTime).
+			Str("built_by", builtBy).
+			Str("built_with", builtWith).
+			Str("go_version", runtime.Version()).
+			Str("gotestsum_version", gotestsumVersion).
 			Str("os", runtime.GOOS).
 			Str("arch", runtime.GOARCH).
-			Str("logFile", logFile).
-			Str("logLevel", logLevel).
-			Bool("enableConsoleLogs", enableConsoleLogs).
+			Str("log_file", logFile).
+			Str("log_level", logLevel).
+			Bool("enable_console_logs", enableConsoleLogs).
 			Int("runs", runs).
-			Str("outputDir", outputDir).
+			Str("output_dir", outputDir).
 			Msg("Run info")
 		return nil
 	},

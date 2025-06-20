@@ -1,6 +1,6 @@
 # Ideal Developer Experiences
 
-What the Flakeguard experience ideally looks like for a developer. This are human stories intended to drive the UX direction of the project as a whole, and aren't necessarily detailed design breakdowns.
+What the Flakeguard experience ideally looks like for a developer. These are human stories intended to drive the UX direction of the project as a whole, and aren't necessarily detailed design breakdowns.
 
 ## Making a PR to Code with Already Flaky Tests
 
