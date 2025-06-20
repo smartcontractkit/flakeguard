@@ -1,7 +1,17 @@
 # Run `detect` on flaky tests, expecting some flaky tests to be found. `detect` command should succeed, even if tests fail
-exec flakeguard detect -c -l debug -r 5 -- -- ./flaky/... -tags examples
+exec flakeguard detect -r 5 -- -- ./flaky/... -tags examples
 # Verify that we have some test failures and successes (any number > 0)
 stdout 'UniqueTestsRun: [1-9][0-9]*, TotalTestRuns: [0-9]+, Successes: [1-9][0-9]*, Failures: [1-9][0-9]*, Panics: 0, Races: 0, Timeouts: 0, Skips: 0'
 
-# Run flakeguard detect on un-buildable tests expecting a build error and flakeguard to exit with error
-! exec flakeguard detect -c -l debug -r 1 -- -- ./broken/... -tags examples
+# Run flakeguard detect on un-buildable tests expecting a build error and flakeguard to exit with error code 2
+exec_with_exit_code 2 flakeguard detect -r 1 -- -- ./broken/... -tags examples
+stderr 'Go test build failed'
+
+# Make sure flakeguard errors when it finds it didn't run any tests (bad tag)
+exec_with_exit_code 3 flakeguard detect -r 1 -- -- ./pass/... -tags badtag
+stderr 'matched no packages'
+
+# Make sure flakeguard errors when it finds it didn't run any tests (bad cache)
+env GOCACHE=bad
+exec_with_exit_code 3 flakeguard detect -r 1 -- -- ./pass/... -tags examples
+stderr 'cache'

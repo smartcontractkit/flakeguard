@@ -5,8 +5,10 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -64,6 +66,7 @@ func TestIntegrationDetect(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir:   "testscripts/detect",
 		Setup: setupTestscript(t),
+		Cmds:  customCommands(),
 	})
 }
 
@@ -78,6 +81,7 @@ func TestIntegrationGuard(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir:   "testscripts/guard",
 		Setup: setupTestscript(t),
+		Cmds:  customCommands(),
 	})
 }
 
@@ -310,4 +314,61 @@ func setupCoverageCollection(env *testscript.Env) error {
 	// Override Go's temporary GOCOVERDIR with our desired directory
 	env.Setenv("GOCOVERDIR", coverageDir)
 	return nil
+}
+
+// customCommands returns a map of custom testscript commands
+func customCommands() map[string]func(ts *testscript.TestScript, neg bool, args []string) {
+	return map[string]func(ts *testscript.TestScript, neg bool, args []string){
+		"exec_with_exit_code": execWithExitCode,
+	}
+}
+
+// execWithExitCode executes a command and verifies it exits with a specific exit code
+// Usage: exec_with_exit_code <expected_exit_code> <command> [args...]
+// Example: exec_with_exit_code 2 flakeguard detect -- -- ./broken/...
+func execWithExitCode(ts *testscript.TestScript, neg bool, args []string) {
+	if len(args) < 2 {
+		ts.Fatalf("exec_with_exit_code requires at least 2 arguments: expected_exit_code command [args...]")
+	}
+
+	expectedExitCode := 0
+	var err error
+	expectedExitCode, err = strconv.Atoi(args[0])
+	if err != nil {
+		ts.Fatalf("exec_with_exit_code: invalid exit code '%s': %v", args[0], err)
+	}
+
+	command := args[1]
+	commandArgs := args[2:]
+
+	// Execute the command
+	err = ts.Exec(command, commandArgs...)
+
+	// Get the actual exit code
+	actualExitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			actualExitCode = exitError.ExitCode()
+		} else {
+			// If it's not an ExitError, assume it's a different kind of error (exit code -1 or similar)
+			actualExitCode = -1
+		}
+	}
+
+	// Check if the exit code matches expectation
+	if neg {
+		// With negation, we expect the exit code to NOT match
+		if actualExitCode == expectedExitCode {
+			ts.Fatalf(
+				"exec_with_exit_code: expected exit code to NOT be %d, but got %d",
+				expectedExitCode,
+				actualExitCode,
+			)
+		}
+	} else {
+		// Without negation, we expect the exit code to match exactly
+		if actualExitCode != expectedExitCode {
+			ts.Fatalf("exec_with_exit_code: expected exit code %d, but got %d", expectedExitCode, actualExitCode)
+		}
+	}
 }

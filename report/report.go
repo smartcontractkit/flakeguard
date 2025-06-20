@@ -221,7 +221,7 @@ func New(l zerolog.Logger, testRunInfo TestRunInfo, files []string, options ...O
 
 	summary, results, err := analyzeTestOutput(l, lines)
 	if err != nil {
-		return fmt.Errorf("failed to analyze test output: %w", err)
+		return err
 	}
 
 	for _, result := range results {

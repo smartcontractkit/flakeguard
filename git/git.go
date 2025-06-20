@@ -3,6 +3,7 @@ package git
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -16,6 +17,54 @@ type BasicRepoInfo struct {
 	Name       string `json:"repo_name"`
 	HeadBranch string `json:"head_branch"`
 	HeadCommit string `json:"head_commit"`
+}
+
+var (
+	sshURLRe   = regexp.MustCompile(`^[^:]+@[^:]+:([^/]+)/([^.]+)\.git$`)
+	httpsURLRe = regexp.MustCompile(`^https?://[^/]+/([^/]+)/([^.]+)\.git$`)
+)
+
+// parseGitURL extracts owner and repo name from a git URL
+func parseGitURL(url string) (owner, name string, err error) {
+	// Handle SSH format: git@github.com:owner/repo.git
+	if sshURLRe.MatchString(url) {
+		// Split by ':' to get the path part
+		parts := strings.Split(url, ":")
+		if len(parts) != 2 {
+			return "", "", fmt.Errorf("invalid SSH git URL format: %s", url)
+		}
+		path := parts[1]
+		// Remove .git suffix if present
+		path = strings.TrimSuffix(path, ".git")
+		// Split by '/' to get owner/repo
+		pathParts := strings.Split(path, "/")
+		if len(pathParts) != 2 {
+			return "", "", fmt.Errorf("expected path format 'owner/repo', got '%s'", path)
+		}
+		return pathParts[0], pathParts[1], nil
+	}
+
+	// Handle HTTPS format: https://github.com/owner/repo.git
+	if httpsURLRe.MatchString(url) {
+		// Find the domain part and remove it
+		domainEndIndex := strings.Index(url[8:], "/") // Skip "https://"
+		if domainEndIndex == -1 {
+			return "", "", fmt.Errorf("invalid HTTPS git URL format: %s", url)
+		}
+		path := url[8+domainEndIndex+1:] // Skip "https://" + domain + "/"
+
+		// Remove .git suffix if present
+		path = strings.TrimSuffix(path, ".git")
+
+		// Split by '/' to get owner/repo
+		pathParts := strings.Split(path, "/")
+		if len(pathParts) < 2 {
+			return "", "", fmt.Errorf("expected path format 'owner/repo', got '%s'", path)
+		}
+		return pathParts[0], pathParts[1], nil
+	}
+
+	return "", "", fmt.Errorf("unsupported git URL format: %s", url)
 }
 
 // ReadBasicRepoInfo returns basic information about the repository at the given path.
@@ -33,24 +82,23 @@ func ReadBasicRepoInfo(l zerolog.Logger, repoPath string) (BasicRepoInfo, error)
 		return BasicRepoInfo{}, err
 	}
 
-	remote, err := repo.Remote("origin")
+	remotes, err := repo.Remotes()
 	if err != nil {
 		return BasicRepoInfo{}, err
 	}
+	if len(remotes) == 0 {
+		return BasicRepoInfo{}, fmt.Errorf("no remotes found")
+	}
+	remote := remotes[0]
+	remoteURL := remote.Config().URLs[0]
 
-	splitName := strings.Split(remote.Config().Name, "/")
-	if len(splitName) != 2 {
-		return BasicRepoInfo{}, fmt.Errorf(
-			"expected remote name to be in the format 'owner/repo', got '%s'",
-			remote.Config().Name,
-		)
+	owner, name, err := parseGitURL(remoteURL)
+	if err != nil {
+		return BasicRepoInfo{}, fmt.Errorf("failed to parse git URL '%s': %w", remoteURL, err)
 	}
 
-	owner := splitName[0]
-	name := splitName[1]
-
 	return BasicRepoInfo{
-		URL:        remote.Config().URLs[0],
+		URL:        remoteURL,
 		Owner:      owner,
 		Name:       name,
 		HeadBranch: head.Name().Short(),

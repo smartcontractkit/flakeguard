@@ -1,7 +1,7 @@
 ---
-description:
+description: Defining how and when to log somethine using zerolog and default console.
 globs:
-alwaysApply: true
+alwaysApply: false
 ---
 Use zerolog for logging, passing in the logger created in [root.go](mdc:cmd/root.go) directly, or through context when necessary. Fields should be in snake_case. Logs should contain helpful debug and execution info. Along with each Info log, consider if you should also include a print statement to inform the end user. Consider that print statements will be weaved in with typical gotestsum output.
 
