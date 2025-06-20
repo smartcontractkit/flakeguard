@@ -74,7 +74,7 @@ jobs:
         run: go mod download
       - name: Create Run Command
         run: |
-          if [ "$race" = "true" ]; then
+          if [ "${{ matrix.race }}" = "true" ]; then
             run_command="go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration -race ./..."
           else
             run_command="go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration ./..."
