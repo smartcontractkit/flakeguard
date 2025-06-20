@@ -18,7 +18,7 @@ coverage/
 *.out
 *.html
 coverage.svg
-
+*_coverage.txt
 
 # goreleaser
 dist/

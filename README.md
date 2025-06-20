@@ -1,20 +1,20 @@
 # Flakeguard
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/smartcontractkit/flakeguard.svg)](https://pkg.go.dev/github.com/smartcontractkit/flakeguard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/smartcontractkit/flakeguard)](https://goreportcard.com/report/github.com/smartcontractkit/flakeguard)
+
 
 Flakeguard helps you detect flaky tests, quarantine them, and guard your CI pipelines from them.
 
 ## Usage
 
-Flakeguard sits on top of [gotestsum](https://github.com/gotestyourself/gotestsum) to run tests and organize output.
-
 ```sh
 # Print help output
 flakeguard -h
-
-# Typical usage
-flakeguard [detect | guard] [flakeguard-flags] [-- gotestsum-flags] [-- go-test-flags]
 ```
+
+Once you find a flaky test, take a look at our [Fixing Flaky Tests Guide](./fixing-flaky-tests-guide.md) for tips and processes to help you debug and narrow down the source of flakes.
 
 There are two modes for running flakeguard, `detect` and `guard`.
 
@@ -33,6 +33,10 @@ Guard your CI pipelines from being affected by flaky tests. This will attempt to
 ```sh
 flakeguard guard -h
 ```
+
+## Design
+
+For detailed technical design diagrams and decisions, see the [Flakeguard Design Doc](./design.md). For guiding principles for UX, see the [Ideal Flakeguard Developer Experiences](./ideal-developer-experiences.md) page.
 
 ## Contributing
 
@@ -55,6 +59,10 @@ make test_integration # Run only integration tests
 make test_full        # Run all tests with extensive coverage stats
 make test_full_race   # Run all tests with extensive coverage stats and race detection
 ```
+
+### Cursor
+
+If you use [Cursor](https://www.cursor.com/), you can utilize the [Cursor rules](https://docs.cursor.com/context/rules#workflow-automation) included in [.cursor/rules](./.cursor/rules/) to guide suggestions.
 
 ### Test
 

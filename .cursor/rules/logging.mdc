@@ -1,0 +1,12 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+Use zerolog for logging, passing in the logger created in [root.go](mdc:cmd/root.go) directly, or through context when necessary. Fields should be in snake_case. Logs should contain helpful debug and execution info. Along with each Info log, consider if you should also include a print statement to inform the end user. Consider that print statements will be weaved in with typical gotestsum output.
+
+For log context:
+Warn: Something the user should be informed of that can severely affect how the program works. Always print to stdout.
+Info: Some large step has been completed. Consider also printing to stdout for end-user.
+Debug: A smaller step has started/completed.
+Trace: A tiny step has started/completed.
