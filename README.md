@@ -62,10 +62,7 @@ make test_full_race   # Run all tests with extensive coverage stats and race det
 
 ### Cursor
 
-If you use [Cursor](https://www.cursor.com/), you can utilize the rules included in [.cursor/rules](./.cursor/rules/) to guide suggestions.
-
-* **@design-context**: Read design docs to help guide suggestions.
-*
+If you use [Cursor](https://www.cursor.com/), you can utilize the [Cursor rules](https://docs.cursor.com/context/rules#workflow-automation) included in [.cursor/rules](./.cursor/rules/) to guide suggestions.
 
 ### Test
 
