@@ -197,3 +197,30 @@ func TestParseGitURL(t *testing.T) {
 		})
 	}
 }
+
+func FuzzParseGitURL(f *testing.F) {
+	f.Add("git@github.com:owner/repo.git")
+	f.Add("https://github.com/owner/repo.git")
+	f.Add("invalid-url")
+
+	f.Fuzz(func(t *testing.T, url string) {
+		owner, name, err := parseGitURL(url)
+		// The function should never panic
+		// If no error, owner and name should be non-empty
+		if err == nil {
+			if owner == "" || name == "" {
+				t.Errorf("parseGitURL(%q) returned empty owner/name without error: owner=%q, name=%q", url, owner, name)
+			}
+		}
+		// If error, owner and name should be empty
+		if err != nil && (owner != "" || name != "") {
+			t.Errorf(
+				"parseGitURL(%q) returned non-empty owner/name with error: owner=%q, name=%q, err=%v",
+				url,
+				owner,
+				name,
+				err,
+			)
+		}
+	})
+}
