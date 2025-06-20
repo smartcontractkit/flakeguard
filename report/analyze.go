@@ -21,10 +21,6 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 	l.Trace().Int("lines", len(lines)).Msg("Analyzing test output")
 	start := time.Now()
 
-	if len(lines) == 0 {
-		return nil, nil, exit.New(exit.CodeFlakeguardError, fmt.Errorf("no tests run"))
-	}
-
 	summary := &reportSummary{
 		UniqueTestsRun: 0,
 		TotalTestRuns:  0,

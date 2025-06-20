@@ -1,5 +1,5 @@
 ---
-description: Defining how and when to log somethine using zerolog and default console.
+description: Defining how and when to log something using zerolog and default console.
 globs:
 alwaysApply: false
 ---

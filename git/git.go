@@ -47,11 +47,12 @@ func parseGitURL(url string) (owner, name string, err error) {
 	// Handle HTTPS format: https://github.com/owner/repo.git
 	if httpsURLRe.MatchString(url) {
 		// Find the domain part and remove it
-		domainEndIndex := strings.Index(url[8:], "/") // Skip "https://"
+		trimmedURL := strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://")
+		domainEndIndex := strings.Index(trimmedURL, "/")
 		if domainEndIndex == -1 {
 			return "", "", fmt.Errorf("invalid HTTPS git URL format: %s", url)
 		}
-		path := url[8+domainEndIndex+1:] // Skip "https://" + domain + "/"
+		path := trimmedURL[domainEndIndex+1:] // Skip domain + "/"
 
 		// Remove .git suffix if present
 		path = strings.TrimSuffix(path, ".git")
