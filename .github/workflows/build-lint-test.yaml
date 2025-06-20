@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,6 +40,7 @@ jobs:
 
   lint:
     needs: build
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -77,9 +79,10 @@ jobs:
           else
             run_command="go tool gotestsum -- -coverprofile=unit_coverage.txt -skip TestIntegration ./..."
           fi
+          echo "RUN_COMMAND=$run_command" >> $GITHUB_ENV
           echo "Run command: $run_command"
       - name: Run Unit Tests
-        run: $run_command
+        run: $RUN_COMMAND
       - name: Upload unit coverage to Codecov
         if: ${{ matrix.race == false }}
         uses: codecov/codecov-action@v4
@@ -122,14 +125,15 @@ jobs:
         run: go mod download
       - name: Create Run Command
         run: |
-          if [ "$race" = "true" ]; then
+          if [ "${{ matrix.race }}" = "true" ]; then
             run_command="go tool gotestsum --format standard-verbose -- -run TestIntegration -race ./..."
           else
             run_command="go tool gotestsum --format standard-verbose -- -run TestIntegration ./..."
           fi
+          echo "RUN_COMMAND=$run_command" >> $GITHUB_ENV
           echo "Run command: $run_command"
       - name: Run Integration Tests
-        run: $run_command
+        run: $RUN_COMMAND
       - name: DEBUG Coverage Directory
         run: |
           pwd
@@ -140,6 +144,7 @@ jobs:
           echo "DEBUG: Integration directory:"
           ls -la coverage/integration
       - name: Format coverage report
+        if: ${{ matrix.race == false }}
         run: go tool covdata textfmt -i=$GOCOVERDIR -o=integration_coverage.txt
       - name: Upload integration coverage to Codecov
         if: ${{ matrix.race == false }}
