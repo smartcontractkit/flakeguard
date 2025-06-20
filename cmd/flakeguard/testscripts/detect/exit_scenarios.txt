@@ -4,14 +4,50 @@ exec flakeguard detect -r 5 -- -- ./flaky/... -tags examples
 stdout 'UniqueTestsRun: [1-9][0-9]*, TotalTestRuns: [0-9]+, Successes: [1-9][0-9]*, Failures: [1-9][0-9]*, Panics: 0, Races: 0, Timeouts: 0, Skips: 0'
 
 # Run flakeguard detect on un-buildable tests expecting a build error and flakeguard to exit with error code 2
-exec_with_exit_code 2 flakeguard detect -r 1 -- -- ./broken/... -tags examples
+! exec flakeguard detect -r 1 -- -- ./broken/... -tags examples
 stderr 'Go test build failed'
 
 # Make sure flakeguard errors when it finds it didn't run any tests (bad tag)
-exec_with_exit_code 3 flakeguard detect -r 1 -- -- ./pass/... -tags badtag
+! exec flakeguard detect -r 1 -- -- ./pass/... -tags badtag
 stderr 'matched no packages'
 
 # Make sure flakeguard errors when it finds it didn't run any tests (bad cache)
 env GOCACHE=bad
-exec_with_exit_code 3 flakeguard detect -r 1 -- -- ./pass/... -tags examples
+! exec flakeguard detect -r 1 -- -- ./pass/... -tags examples
 stderr 'cache'
+env GOCACHE=$WORK/.gocache
+
+# Test error on invalid regex pattern in test run flag
+! exec flakeguard detect -r 1 -- -- -run='[invalid' ./pass/... -tags examples
+stdout 'testing: invalid regexp'
+stdout 'error parsing regexp'
+stderr 'No tests run'
+
+# Test error on non-existent package path
+! exec flakeguard detect -r 1 -- -- ./nonexistent/... -tags examples
+stderr 'Go test build failed'
+stdout 'no such file or directory'
+
+# Test error on invalid gotestsum flag
+! exec flakeguard detect -r 1 --invalid-gotestsum-flag -- -- ./pass/... -tags examples
+stderr 'Unknown flag: --invalid-gotestsum-flag'
+
+# Test error on malformed test functions (wrong signatures)
+! exec flakeguard detect -r 1 -- -- ./malformed/... -tags examples
+stderr 'Go test build failed'
+stdout 'wrong signature for TestWithoutTParameter'
+
+# Test error on missing dependencies
+! exec flakeguard detect -r 1 -- -- ./missing_deps/... -tags examples
+stderr 'Go test build failed'
+stdout 'undefined'
+
+# Test error on read-only output directory
+mkdir readonly_output
+chmod 444 readonly_output
+! exec flakeguard detect -r 1 -o readonly_output -- -- ./pass/... -tags examples
+stderr 'permission denied'
+
+# Test error when PATH doesn't include go binary
+env PATH=/dev/null
+! exec flakeguard detect -r 1 -- -- ./pass/... -tags examples

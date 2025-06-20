@@ -168,6 +168,10 @@ func analyzeTestOutput(l zerolog.Logger, lines []*testOutputLine) (*reportSummar
 		return resultSlice[i].Package < resultSlice[j].Package
 	})
 
+	if summary.UniqueTestsRun == 0 {
+		return nil, nil, exit.New(exit.CodeFlakeguardError, fmt.Errorf("no tests run"))
+	}
+
 	l.Trace().Int("tests", len(resultSlice)).Str("duration", time.Since(start).String()).Msg("Analyzed test output")
 	return summary, resultSlice, nil
 }

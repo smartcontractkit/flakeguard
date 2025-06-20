@@ -7,7 +7,6 @@ import (
 
 func writeToConsole(summary *reportSummary, results []*TestResult) error {
 	summaryStr := summary.String()
-	fmt.Println("\nFlakeguard report")
 	fmt.Println(strings.Repeat("-", len(summaryStr)))
 	fmt.Println(summaryStr)
 	fmt.Println(strings.Repeat("-", len(summaryStr)))
