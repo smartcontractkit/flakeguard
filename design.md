@@ -1,8 +1,28 @@
-# Flakeguard Design
+# Flakeguard Design Doc
 
 A high-level design document of how Flakeguard works, and how it interacts with other services. This is a living doc and can change as the scope, plans, and existing structure of Flakeguard changes.
 
-## Flakeguard's Outside Systems
+## Core
+
+Flakeguard uses [gotestsum](https://github.com/gotestyourself/gotestsum) to execute tests, and reads the JSON output after execution is complete. To do so, we call out to [gotestsum](https://github.com/gotestyourself/gotestsum) and provide it with args for it and for those to pass on to `go test`. This lets us leverage [gotestsum](https://github.com/gotestyourself/gotestsum)'s handy tools for console output and re-running failures.
+
+```mermaid
+sequenceDiagram
+  participant fg as Flakeguard CLI
+  participant gt as gotestsum
+
+  loop Desired runs
+    fg->>+gt: Run Tests
+    gt->>-fg: Report JSON Results
+  end
+  fg->>fg: Process Results and Report
+```
+
+### Why Not Use `--post-run-command` or `gotestsum tool`?
+
+We might find reason to do this in the future, but for now it's not feasible if we wish to emulate a real test running environment. Especially for the `detect` command, we want to re-run test suites multiple times in a setup that emulates how they would run in a typical flow. If we exclusively use a post-run hook, we lose the ability to do this cleanly. Using `-count=n` doesn't accurately emulate how tests would actually run in a real environment multiple times.
+
+### Flakeguard's Outside Systems
 
 Flakeguard relies on a few different outside systems in order to make it a scalable and stateless tool.
 
@@ -47,6 +67,34 @@ sequenceDiagram
   fg->>gh: Reinstate Non-Flaky Tests
 ```
 
+## Detect
+
+Detect is fairly simple. Flakeguard re-runs the tests multiple times (with disabled caching) and coalesces all the results afterwards. We analyze how many times the tests failed vs passed, and determine their flake rate from there.
+
+## Guard
+
+A primary goal of Flakeguard is to **guard** your CI from flakes, and guard your main branch from new flakes being introduced. When running in `guard` mode, Flakeguard will detect newly added (and modified) tests and run some `detect` loops on them. If it finds that you're introducing newly flaky tests, it will block your PR.
+
+```mermaid
+flowchart TD
+  r[Run Flakeguard guard]
+  new[Look for Newly Added or Modified Tests]
+  run[Run Test Suite]
+  rerun[Re-Run Failing Tests n times]
+  detect[Run detect Loop on New Tests]
+  block[Block Merge]
+  merge[Merge Code]
+
+  r-->run
+  r-->new
+  run-->rerun
+  new-->detect
+  rerun -- If Tests Pass --> merge
+  detect -- If Tests Pass --> merge
+  rerun -- If Tests Fail --> block
+  detect -- If Tests Flaky --> block
+```
+
 ## Quarantine and Reinstatement Process
 
 We're considering two approaches, and I believe we can mix-and-match them depending on our needs and what bottlenecks we experience in practice.
@@ -78,29 +126,3 @@ Instead of doing a large PR that will likely be the daily chore of a single team
 
 * Can run into merge conflicts galore, will probably need some system to deal with these.
 * Some tests (like complex subtests) cannot be easily quarantined and may need manual intervention, which can frustrate devs who are unfamiliar with the process. This isn't a big deal, and can be ameliorated with good docs and alerts.
-
-## Guard Mode
-
-A primary goal of Flakeguard is to **guard** your CI from flakes, and guard your main branch from new flakes being introduced. When running in `guard` mode, Flakeguard will detect newly added (and modified) tests and run some `detect` loops on them. If it finds that you're introducing newly flaky tests, it will block your PR.
-
-```mermaid
-flowchart TD
-  r[Run Flakeguard guard]
-  new[Look for Newly Added or Modified Tests]
-  run[Run Test Suite]
-  rerun[Re-Run Failing Tests n times]
-  detect[Run detect Loop on New Tests]
-
-  r-->run
-  r-->new
-  run-->rerun
-  new-->detect
-```
-
-## Flakeguard's Usage of [gotestsum](https://github.com/gotestyourself/gotestsum)
-
-Flakeguard uses gotestsum to execute tests, and reads the JSON output after execution is complete. To do so, we call out to gotestsum and provide it with args for it and for those to pass on to `go test`. This lets us leverage `gotestsum`'s handy tools for console output and re-running failures.
-
-### Why Not Use `--post-run-command` or `gotestsum tool`?
-
-We might find reason to do this in the future, but for now it's not feasible if we wish to emulate a real test running environment. Especially for the `detect` command, we want to re-run test suites multiple times in a setup that emulates how they would run in a typical flow. If we exclusively use a post-run hook, we lose the ability to do this cleanly. Using `-count=n` doesn't accurately emulate how tests would actually run in a real environment multiple times.
