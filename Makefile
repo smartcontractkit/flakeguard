@@ -52,6 +52,9 @@ test_coverage_report:
 		echo "Unit: coverage/unit.html"; \
 		echo "--------------------------------"; \
 		go tool covdata percent -i=coverage/unit; \
+		echo ""; \
+		printf "🎯 Unit Coverage: "; \
+		go tool cover -func=coverage/unit.out | tail -1 | awk '{print $$NF}'; \
 	fi
 	@if [ -d "coverage/integration" ]; then \
 		go tool covdata textfmt -i=coverage/integration -o=coverage/integration.out; \
@@ -60,6 +63,9 @@ test_coverage_report:
 		echo "Integration: coverage/integration.html"; \
 		echo "--------------------------------"; \
 		go tool covdata percent -i=coverage/integration; \
+		echo ""; \
+		printf "🎯 Integration Coverage: "; \
+		go tool cover -func=coverage/integration.out | tail -1 | awk '{print $$NF}'; \
 	fi
 
 
@@ -74,6 +80,9 @@ test_coverage_report:
 		echo "Combined: coverage/combined.html"; \
 		echo "--------------------------------"; \
 		go tool covdata percent -i=coverage/combined; \
+		echo ""; \
+		printf "🎯 Total Coverage: "; \
+		go tool cover -func=coverage/combined.out | tail -1 | awk '{print $$NF}'; \
 	fi
 # @echo "go-test-coverage"
 # @echo "--------------------------------"
