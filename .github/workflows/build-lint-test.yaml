@@ -126,23 +126,14 @@ jobs:
       - name: Create Run Command
         run: |
           if [ "${{ matrix.race }}" = "true" ]; then
-            run_command="go tool gotestsum --format standard-verbose -- -run TestIntegration -race ./..."
+            run_command="go tool gotestsum -- -run TestIntegration -race ./..."
           else
-            run_command="go tool gotestsum --format standard-verbose -- -run TestIntegration ./..."
+            run_command="go tool gotestsum -- -run TestIntegration ./..."
           fi
           echo "RUN_COMMAND=$run_command" >> $GITHUB_ENV
           echo "Run command: $run_command"
       - name: Run Integration Tests
         run: $RUN_COMMAND
-      - name: DEBUG Coverage Directory
-        run: |
-          pwd
-          echo "DEBUG: Current directory:"
-          ls -la .
-          echo "DEBUG: Coverage directory:"
-          ls -la coverage
-          echo "DEBUG: Integration directory:"
-          ls -la coverage/integration
       - name: Format coverage report
         if: ${{ matrix.race == false }}
         run: go tool covdata textfmt -i=$GOCOVERDIR -o=integration_coverage.txt
