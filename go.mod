@@ -21,7 +21,7 @@ require (
 	golang.org/x/sync v0.15.0
 	golang.org/x/tools v0.34.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gotest.tools/gotestsum v1.12.2
+	gotest.tools/gotestsum v1.12.3
 )
 
 require (
